@@ -132,10 +132,11 @@ class GetMapAreaRequest(BaseRequest):
     y2: int = Field(alias="AY2")
 
 
-# Indices into an owned-location raw entry. The live server sends 20
-# fields per castle (reverse-engineered):
-#   [type, x, y, location_id, player_id, lvl, lvl, lvl, ?, ?, name,
-#    0, 0, -1, -1, -1, 0, alliance_id, [], relocating_flag]
+# Indices into an owned-location raw entry, from the client's
+# InteractiveMapobjectVO.parseAreaInfo:
+#   [type, x, y, object_id, player_id, keep, wall, gate, tower, moat, name,
+#    attack_cooldown, sabotage_cooldown, seconds_since_espionage,
+#    outpost_type, occupier_id, kingdom_id, ..., relocating_flag]
 # A free castle plot is the four-field row [1, x, y, -1].
 _LOCATION_ID_FIELD = 3
 _PLAYER_ID_FIELD = 4
@@ -165,6 +166,33 @@ _INVASION_WALL_BONUS_FIELD = 9
 _INVASION_GATE_BONUS_FIELD = 10
 _INVASION_MOAT_BONUS_FIELD = 11
 
+# Types whose row carries an object id at field 3 and the owner's player id
+# at field 4: every class that uses or mirrors InteractiveMapobjectVO.parseAreaInfo.
+OWNED_AREA_TYPES = frozenset(
+    {
+        MapItemType.CASTLE,
+        MapItemType.CAPITAL,
+        MapItemType.OUTPOST,
+        MapItemType.VILLAGE,
+        MapItemType.KINGDOM_CASTLE,
+        MapItemType.FACTION_CAMP,
+        MapItemType.METRO,
+        MapItemType.KINGS_TOWER,
+        MapItemType.ISLE_RESOURCE,
+        MapItemType.MONUMENT,
+        MapItemType.LABORATORY,
+    }
+)
+
+# Faction landmarks carry only the owner's player id, at field 3.
+FACTION_LANDMARK_TYPES = frozenset(
+    {
+        MapItemType.FACTION_VILLAGE,
+        MapItemType.FACTION_TOWER,
+        MapItemType.FACTION_CAPITAL,
+    }
+)
+
 INVASION_AREA_TYPES = frozenset(
     {
         MapItemType.SAMURAI_CAMP,
@@ -180,12 +208,13 @@ class MapAreaItem(BasePayload):
 
     AI array format: [[type, x, y, location_id, player_id, ...], ...]
 
-    For every owned type, field 3 is the location (castle/outpost) id and
-    field 4 the owning player's id -- see ``location_id`` and ``owner_id``.
-    An NPC camp (type 2) has no owner at all: its field 3 is how long ago it was
-    spied, so ``owner_id`` stays -1 and the camp's own fields are exposed by
-    ``victory_count`` and the properties beside it. An invasion camp names
-    itself in field 4, so ``owner_id`` keeps field 3 there.
+    For every type in ``OWNED_AREA_TYPES``, field 3 is the location
+    (castle/outpost) id and field 4 the owning player's id -- see
+    ``location_id`` and ``owner_id``. A faction landmark carries only the
+    owner, at field 3. Every other row (an NPC camp, an event camp, a free
+    plot) has no owner field, so ``owner_id`` stays -1 and ``has_owner_field``
+    is False; a camp's own fields are exposed by ``victory_count`` and the
+    properties beside it.
 
     Common types (see MapItemType enum):
     - 1: Player main castle (``is_relocating`` tells you if it is in transit)
@@ -207,12 +236,12 @@ class MapAreaItem(BasePayload):
         """Parse from AI array entry."""
         item_type = data[0] if len(data) > 0 else 0
 
-        if item_type == MapItemType.DUNGEON:
-            owner_id = -1
-        elif item_type in INVASION_AREA_TYPES:
-            owner_id = data[_LOCATION_ID_FIELD] if len(data) > _LOCATION_ID_FIELD else -1
+        if item_type in OWNED_AREA_TYPES and len(data) > _PLAYER_ID_FIELD:
+            owner_id = data[_PLAYER_ID_FIELD]
+        elif item_type in FACTION_LANDMARK_TYPES and len(data) > _LOCATION_ID_FIELD:
+            owner_id = data[_LOCATION_ID_FIELD]
         else:
-            owner_id = data[_PLAYER_ID_FIELD] if len(data) > _PLAYER_ID_FIELD else -1
+            owner_id = -1
 
         return cls(
             item_type=item_type,
@@ -355,10 +384,15 @@ class MapAreaItem(BasePayload):
     @property
     def location_id(self) -> int:
         """The area id of an owned location (raw field 3), or -1 for a camp or a free plot."""
-        if self.item_type == MapItemType.DUNGEON or len(self.raw_data) <= _LOCATION_ID_FIELD:
+        if self.item_type not in OWNED_AREA_TYPES or len(self.raw_data) <= _PLAYER_ID_FIELD:
             return -1
         value = self.raw_data[_LOCATION_ID_FIELD]
         return value if isinstance(value, int) and not isinstance(value, bool) else -1
+
+    @property
+    def has_owner_field(self) -> bool:
+        """Whether rows of this type carry an owner at all; camps do not."""
+        return self.item_type in OWNED_AREA_TYPES or self.item_type in FACTION_LANDMARK_TYPES
 
     @property
     def is_relocating(self) -> bool:

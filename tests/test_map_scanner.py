@@ -437,6 +437,15 @@ class TestItemTypeFiltering:
 
         assert [i.victory_count for i in result.items] == [297]
 
+    def test_event_camps_survive_the_unowned_filter(self):
+        # A nomad camp row has no owner field at all; it must not be dropped as "unowned".
+        payload = {"AI": [[int(MapItemType.NOMAD_CAMP), 95, 95, -1, 297, -100, 0, 0, -1, 0, 0, 0]], "OI": []}
+        fake = _FakeClient(content_chunks=set(), payloads={(1, 1): payload})
+
+        result = _make_scanner(fake).scan_chunks(kingdom=Kingdom.GREEN, chunks=[(1, 1)], item_types=[], chunk_delay=0)
+
+        assert [i.item_type for i in result.items] == [int(MapItemType.NOMAD_CAMP)]
+
     def test_empty_list_means_no_filtering(self):
         fake = _FakeClient(content_chunks=set(), payloads={(1, 1): self.ROBBER_BARON_AI})
         result = _make_scanner(fake).scan_chunks(kingdom=Kingdom.GREEN, chunks=[(1, 1)], item_types=[], chunk_delay=0)
