@@ -176,30 +176,90 @@ def _truncate(value: Any) -> Any:
     return int(value) if isinstance(value, float) else value
 
 
-class ResourceSet(BasePayload):
-    """One number per resource the client tracks per castle."""
+class _ProductionAreaSection(BasePayload):
+    """A per-resource slice of the ``gpa`` block; validated from the whole block."""
 
-    wood: float = Field(alias="W", default=0.0)
-    stone: float = Field(alias="S", default=0.0)
-    food: float = Field(alias="F", default=0.0)
-    coal: float = Field(alias="C", default=0.0)
-    oil: float = Field(alias="O", default=0.0)
-    glass: float = Field(alias="G", default=0.0)
-    iron: float = Field(alias="I", default=0.0)
-    aquamarine: float = Field(alias="A", default=0.0)
-    honey: float = Field(alias="HONEY", default=0.0)
-    mead: float = Field(alias="MEAD", default=0.0)
-    beef: float = Field(alias="BEEF", default=0.0)
+    model_config = ConfigDict(populate_by_name=True, extra="ignore")
+
+
+class ResourceProduction(_ProductionAreaSection):
+    """Hourly production per resource; the client reads ``D<key>`` / 10."""
+
+    wood: float = Field(alias="DW", default=0.0)
+    stone: float = Field(alias="DS", default=0.0)
+    food: float = Field(alias="DF", default=0.0)
+    coal: float = Field(alias="DC", default=0.0)
+    oil: float = Field(alias="DO", default=0.0)
+    glass: float = Field(alias="DG", default=0.0)
+    iron: float = Field(alias="DI", default=0.0)
+    aquamarine: float = Field(alias="DA", default=0.0)
+    honey: float = Field(alias="DHONEY", default=0.0)
+    mead: float = Field(alias="DMEAD", default=0.0)
+    beef: float = Field(alias="DBEEF", default=0.0)
+
+    @field_validator("*", mode="before")
+    @classmethod
+    def _per_hour(cls, value: Any) -> Any:
+        return value / 10 if isinstance(value, (int, float)) and not isinstance(value, bool) else value
+
+
+class StorageCapacity(_ProductionAreaSection):
+    """Storage capacity per resource (``MR<key>``)."""
+
+    wood: int = Field(alias="MRW", default=0)
+    stone: int = Field(alias="MRS", default=0)
+    food: int = Field(alias="MRF", default=0)
+    coal: int = Field(alias="MRC", default=0)
+    oil: int = Field(alias="MRO", default=0)
+    glass: int = Field(alias="MRG", default=0)
+    iron: int = Field(alias="MRI", default=0)
+    aquamarine: int = Field(alias="MRA", default=0)
+    honey: int = Field(alias="MRHONEY", default=0)
+    mead: int = Field(alias="MRMEAD", default=0)
+    beef: int = Field(alias="MRBEEF", default=0)
+
+
+class ProductionBonus(_ProductionAreaSection):
+    """Production bonus per resource in percent (``<key>M``); 100 means no bonus."""
+
+    wood: float = Field(alias="WM", default=0.0)
+    stone: float = Field(alias="SM", default=0.0)
+    food: float = Field(alias="FM", default=0.0)
+    coal: float = Field(alias="CM", default=0.0)
+    oil: float = Field(alias="OM", default=0.0)
+    glass: float = Field(alias="GM", default=0.0)
+    iron: float = Field(alias="IM", default=0.0)
+    aquamarine: float = Field(alias="AM", default=0.0)
+    honey: float = Field(alias="HONEYM", default=0.0)
+    mead: float = Field(alias="MEADM", default=0.0)
+    beef: float = Field(alias="BEEFM", default=0.0)
+
+
+class SafeAmount(_ProductionAreaSection):
+    """Amount per resource safe from plunder (``SAFE_<key>``)."""
+
+    wood: float = Field(alias="SAFE_W", default=0.0)
+    stone: float = Field(alias="SAFE_S", default=0.0)
+    food: float = Field(alias="SAFE_F", default=0.0)
+    coal: float = Field(alias="SAFE_C", default=0.0)
+    oil: float = Field(alias="SAFE_O", default=0.0)
+    glass: float = Field(alias="SAFE_G", default=0.0)
+    iron: float = Field(alias="SAFE_I", default=0.0)
+    aquamarine: float = Field(alias="SAFE_A", default=0.0)
+    honey: float = Field(alias="SAFE_HONEY", default=0.0)
+    mead: float = Field(alias="SAFE_MEAD", default=0.0)
+    beef: float = Field(alias="SAFE_BEEF", default=0.0)
+
+
+_PRODUCTION_AREA_SECTIONS = ("production", "storage_capacity", "production_bonus_percent", "safe_amount")
 
 
 class CastleProductionArea(BasePayload):
     """The ``gpa`` block of a dcl entry, as AreaDataCommonInfo, AreaDataStorageItem,
     AreaDataMorality and AreaDataUpdater read it.
 
-    Per-resource values follow the client's key pattern and are exposed as
-    :class:`ResourceSet` properties: ``D<key>`` / 10 is the hourly production,
-    ``MR<key>`` the storage capacity, ``<key>M`` the production bonus in
-    percent and ``SAFE_<key>`` the amount safe from plunder.
+    The per-resource sections are aliased key by key and validated from the
+    same block, so each wire key appears once in this module.
     """
 
     population: int = Field(alias="P", default=0)
@@ -222,35 +282,21 @@ class CastleProductionArea(BasePayload):
     workshop_speed: float = Field(alias="RS2", default=0.0)
     defense_workshop_speed: float = Field(alias="RS3", default=0.0)
     hospital_speed: float = Field(alias="RSH", default=0.0)
+    production: ResourceProduction = Field(default_factory=ResourceProduction)
+    storage_capacity: StorageCapacity = Field(default_factory=StorageCapacity)
+    production_bonus_percent: ProductionBonus = Field(default_factory=ProductionBonus)
+    safe_amount: SafeAmount = Field(default_factory=SafeAmount)
 
-    def _resource_set(self, prefix: str, suffix: str, divisor: int = 1) -> ResourceSet:
-        extra = self.model_extra or {}
-        values = {}
-        for name, key in _RESOURCE_KEYS.items():
-            raw = extra.get(f"{prefix}{key}{suffix}")
-            if isinstance(raw, (int, float)) and not isinstance(raw, bool):
-                values[name] = raw / divisor
-        return ResourceSet(**values)
-
-    @property
-    def production(self) -> ResourceSet:
-        """Hourly production per resource (``D<key>`` / 10)."""
-        return self._resource_set("D", "", 10)
-
-    @property
-    def storage_capacity(self) -> ResourceSet:
-        """Storage capacity per resource (``MR<key>``)."""
-        return self._resource_set("MR", "")
-
-    @property
-    def production_bonus_percent(self) -> ResourceSet:
-        """Production bonus per resource in percent (``<key>M``); 100 means no bonus."""
-        return self._resource_set("", "M")
-
-    @property
-    def safe_amount(self) -> ResourceSet:
-        """Amount per resource safe from plunder (``SAFE_<key>``)."""
-        return self._resource_set("SAFE_", "")
+    @model_validator(mode="before")
+    @classmethod
+    def _sections_see_the_whole_block(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        block = dict(data)
+        data = dict(data)
+        for name in _PRODUCTION_AREA_SECTIONS:
+            data.setdefault(name, block)
+        return data
 
     @property
     def food_consumption_per_hour(self) -> float:
@@ -515,7 +561,10 @@ __all__ = [
     "GetDetailedCastleResponse",
     "DetailedCastleInfo",
     "CastleProductionArea",
-    "ResourceSet",
+    "ResourceProduction",
+    "StorageCapacity",
+    "ProductionBonus",
+    "SafeAmount",
     # JCA - Select Castle
     "SelectCastleRequest",
     "SelectCastleResponse",
