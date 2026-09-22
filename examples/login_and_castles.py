@@ -40,7 +40,9 @@ def main() -> int:
         castles = client.castle.get_all()
         print(f"\n{len(castles)} castle(s):")
         for castle in castles:
-            print(f"  [{castle.castle_id}] {castle.castle_name!r} at ({castle.x}, {castle.y}) level {castle.level}")
+            print(
+                f"  [{castle.castle_id}] {castle.castle_name!r} at ({castle.x}, {castle.y}) type {castle.castle_type}"
+            )
 
         if castles:
             resources = client.castle.get_resources(castle_id=castles[0].castle_id)

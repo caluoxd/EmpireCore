@@ -109,7 +109,7 @@ castles = client.castle.get_all()
 
 details = client.castle.get_details(castle_id=12345)
 if details:                       # None when the response omits the castle
-    print(f"Buildings: {len(details.buildings)}")
+    print(f"Wood: {details.resources.wood}, units: {details.units}")
 
 resources = client.castle.get_resources(castle_id=12345)
 if resources:

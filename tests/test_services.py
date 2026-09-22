@@ -253,32 +253,88 @@ GOLDEN_AIN: dict[str, Any] = {
 }
 
 GOLDEN_GCL: dict[str, Any] = {
+    "PID": 17743260,
     "C": [
-        {"CID": 12345, "CN": "Main Castle", "X": 640, "Y": 655, "KID": 0, "CT": 0, "L": 70},
-        {"CID": 55555, "CN": "Outpost North", "X": 700, "Y": 700, "KID": 0, "CT": 1, "L": 12},
-    ]
+        {
+            "KID": 0,
+            "AI": [
+                {
+                    "AI": [
+                        1,
+                        632,
+                        243,
+                        16654596,
+                        17743260,
+                        2,
+                        2,
+                        2,
+                        1,
+                        0,
+                        "Main Castle",
+                        0,
+                        0,
+                        -1,
+                        -1,
+                        -1,
+                        0,
+                        0,
+                        [],
+                        0,
+                    ],
+                    "AOT": -1,
+                    "TA": -1,
+                },
+                {
+                    "AI": [
+                        4,
+                        630,
+                        244,
+                        16656989,
+                        17743260,
+                        1,
+                        1,
+                        1,
+                        0,
+                        0,
+                        "Outpost North",
+                        0,
+                        0,
+                        -1,
+                        1,
+                        -1,
+                        0,
+                        0,
+                        [],
+                        0,
+                    ],
+                    "TA": 0,
+                },
+            ],
+        }
+    ],
 }
 
 GOLDEN_DCL: dict[str, Any] = {
-    "C": {
-        "CID": 12345,
-        "CN": "Main Castle",
-        "X": 640,
-        "Y": 655,
-        "KID": 0,
-        "CT": 0,
-        "L": 70,
-        "B": [
-            {"BID": 1, "BT": 12, "L": 5, "X": 3, "Y": 4, "S": 0, "H": 100},
-            {"BID": 2, "BT": 40, "L": 1, "X": 8, "Y": 9, "S": 2, "H": 40},
-        ],
-        "R": {"W": 100000, "S": 90000, "F": 5000, "C": 12345, "R": 300},
-        "P": 1200,
-        "MP": 1500,
-        # Item inventory as positional pairs; the trailing 1-element entry is
-        # the kind of short row the server does send.
-        "AC": [[201, 5], [305, 2], [999]],
-    }
+    "PID": 17743260,
+    "C": [
+        {
+            "KID": 0,
+            "AI": [
+                {
+                    "AID": 16654596,
+                    "W": 7000.0,
+                    "S": 7000.0,
+                    "F": 7000.0,
+                    "gpa": {"DW": 2239, "DS": 1952, "DF": 3502},
+                    # Unit stacks as positional pairs; the trailing 1-element
+                    # entry is the kind of short row the server does send.
+                    "AC": [[656, 1], [650, 213], [999]],
+                    "B": 1,
+                },
+                {"AID": 16656989, "W": 800.0, "S": 800.0, "F": 800.0, "AC": [[649, 18]], "B": 0},
+            ],
+        }
+    ],
 }
 
 
@@ -727,27 +783,34 @@ class TestCastleQueries:
 
         castles = client.castle.get_all()
 
-        assert [(c.castle_id, c.castle_name, c.x, c.y) for c in castles] == [
-            (12345, "Main Castle", 640, 655),
-            (55555, "Outpost North", 700, 700),
+        assert [(c.castle_id, c.castle_name, c.x, c.y, c.castle_type) for c in castles] == [
+            (16654596, "Main Castle", 632, 243, 1),
+            (16656989, "Outpost North", 630, 244, 4),
         ]
-        assert castles[0].position.x == 640
+        assert castles[0].position.x == 632
+        assert conn(client).request_payloads == [("gcl", {})]
 
-    def test_golden_dcl_payload_parses_buildings_and_items(self):
+    def test_golden_dcl_payload_parses_resources_and_units(self):
         client = make_client({"dcl": xt_packet("dcl", GOLDEN_DCL)})
 
-        details = client.castle.get_details(12345)
+        details = client.castle.get_details(16656989)
 
         assert details is not None
-        assert details.castle_name == "Main Castle"
-        assert [b.building_id for b in details.buildings] == [1, 2]
-        assert details.buildings[1].status == 2
-        assert details.resources is not None
-        assert details.resources.wood == 100000
-        assert details.population == 1200
-        # The short AC row is skipped rather than crashing the parse.
-        assert details.items == {201: 5, 305: 2}
-        assert conn(client).request_payloads == [("dcl", {"CID": 12345})]
+        assert details.castle_id == 16656989
+        assert (details.resources.wood, details.resources.stone, details.resources.food) == (800, 800, 800)
+        assert details.units == {649: 18}
+        # The server ignores the payload and lists every castle; the id is matched client-side.
+        assert conn(client).request_payloads == [("dcl", {})]
+
+    def test_short_unit_row_is_skipped(self):
+        client = make_client({"dcl": xt_packet("dcl", GOLDEN_DCL)})
+        details = client.castle.get_details(16654596)
+        assert details is not None
+        assert details.units == {656: 1, 650: 213}
+
+    def test_unknown_castle_is_none(self):
+        client = make_client({"dcl": xt_packet("dcl", GOLDEN_DCL)})
+        assert client.castle.get_details(1) is None
 
     def test_missing_castle_block_is_none(self):
         client = make_client({"dcl": xt_packet("dcl", {})})
@@ -1788,7 +1851,7 @@ class TestOnResponse:
         client._on_packet(xt_packet("gcl", GOLDEN_GCL))
 
         assert len(seen) == 1
-        assert [c.castle_id for c in seen[0].castles] == [12345, 55555]  # type: ignore[attr-defined]
+        assert [c.castle_id for c in seen[0].castles] == [16654596, 16656989]  # type: ignore[attr-defined]
 
     def test_unparseable_push_does_not_reach_the_handler(self, caplog):
         client = make_client()

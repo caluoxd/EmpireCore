@@ -152,7 +152,6 @@ from .building import (
     UpgradeWallResponse,
 )
 from .castle import (
-    BuildingInfo,
     CastleInfo,
     DetailedCastleInfo,
     GetCastlesRequest,
@@ -318,7 +317,6 @@ __all__ = [
     "GetDetailedCastleRequest",
     "GetDetailedCastleResponse",
     "DetailedCastleInfo",
-    "BuildingInfo",
     "SelectCastleRequest",
     "SelectCastleResponse",
     "RenameCastleRequest",
