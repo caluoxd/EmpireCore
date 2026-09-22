@@ -16,7 +16,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from pydantic import ConfigDict, Field, model_validator
+from pydantic import ConfigDict, Field, field_validator, model_validator
 
 from .base import BasePayload, BaseRequest, BaseResponse, Position, ResourceAmount
 from .player import PlayerCastle
@@ -55,13 +55,13 @@ class GetCastlesRequest(BaseRequest):
 class CastleInfo(BasePayload):
     """One of the player's locations, from a gcl row."""
 
-    castle_id: int = 0
-    castle_name: str = ""
-    x: int = 0
-    y: int = 0
-    kingdom_id: int = 0
-    castle_type: int = 0  # 1=castle, 3=capital, 4=outpost, 12=kingdom castle, 22=metro
-    owner_id: int = 0
+    castle_id: int = Field(default=0)
+    castle_name: str = Field(default="")
+    x: int = Field(default=0)
+    y: int = Field(default=0)
+    kingdom_id: int = Field(default=0)
+    castle_type: int = Field(default=0)  # 1=castle, 3=capital, 4=outpost, 12=kingdom castle, 22=metro
+    owner_id: int = Field(default=0)
 
     @property
     def position(self) -> Position:
@@ -139,9 +139,6 @@ class ResourceRates(BasePayload):
     food: float = Field(alias="F", default=0.0)
 
 
-_TYPED_RESOURCE_KEYS = ("W", "S", "F")
-
-
 class DetailedCastleInfo(BasePayload):
     """Per-castle detail from a dcl row, as the client's DetailedCastleVO reads it.
 
@@ -152,40 +149,36 @@ class DetailedCastleInfo(BasePayload):
 
     castle_id: int = Field(alias="AID")
     kingdom_id: int = Field(alias="KID", default=0)
-    resources: ResourceAmount = Field(default_factory=ResourceAmount)
-    storage_capacity: ResourceAmount = Field(default_factory=ResourceAmount)
-    production: ResourceRates = Field(default_factory=ResourceRates)
+    wood: int = Field(alias="W", default=0)
+    stone: int = Field(alias="S", default=0)
+    food: int = Field(alias="F", default=0)
     raw_units: list[list[int]] = Field(alias="AC", default_factory=list)
     raw_production: dict[str, Any] = Field(alias="gpa", default_factory=dict)
 
-    @model_validator(mode="before")
+    @field_validator("wood", "stone", "food", mode="before")
     @classmethod
-    def _typed_resources(cls, data: Any) -> Any:
-        if not isinstance(data, dict) or "resources" in data:
-            return data
-        data = dict(data)
+    def _truncate_amount(cls, value: Any) -> Any:
         # Amounts arrive as floats ("W": 7000.0) and tick fractionally.
-        amounts = {}
-        for key in _TYPED_RESOURCE_KEYS:
-            value = data.get(key)
-            if value is not None:
-                amounts[key] = int(value) if isinstance(value, float) else value
-        data["resources"] = ResourceAmount(**amounts)
-        gpa = data.get("gpa")
-        if isinstance(gpa, dict):
-            data["storage_capacity"] = ResourceAmount(
-                **{key: gpa[f"MR{key}"] for key in _TYPED_RESOURCE_KEYS if f"MR{key}" in gpa}
-            )
-            # The client divides the D<resource> delta by ten for the hourly rate.
-            data["production"] = ResourceRates(
-                **{key: gpa[f"D{key}"] / 10 for key in _TYPED_RESOURCE_KEYS if f"D{key}" in gpa}
-            )
-        return data
+        return int(value) if isinstance(value, float) else value
 
     @property
     def units(self) -> dict[int, int]:
         """Unit stacks stationed here as {unit_id: count}, from the ``AC`` pairs."""
         return {row[0]: row[1] for row in self.raw_units if len(row) >= 2}
+
+    @property
+    def storage_capacity(self) -> ResourceAmount:
+        """Storage capacity for wood, stone and food, from ``gpa.MR<key>``."""
+        return ResourceAmount(
+            **{key: self.raw_production[f"MR{key}"] for key in "WSF" if f"MR{key}" in self.raw_production}
+        )
+
+    @property
+    def production(self) -> ResourceRates:
+        """Hourly production of wood, stone and food; the client reads ``gpa.D<key> / 10``."""
+        return ResourceRates(
+            **{key: self.raw_production[f"D{key}"] / 10 for key in "WSF" if f"D{key}" in self.raw_production}
+        )
 
 
 class GetDetailedCastleResponse(BaseResponse):

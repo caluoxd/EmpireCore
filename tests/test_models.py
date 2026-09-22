@@ -409,7 +409,7 @@ class TestGoldenCastlePayloads:
         main = response.castles[0]
         assert main.kingdom_id == 0
         # Fractional amounts are truncated, not rejected.
-        assert (main.resources.wood, main.resources.stone, main.resources.food) == (7000, 6999, 7000)
+        assert (main.wood, main.stone, main.food) == (7000, 6999, 7000)
         assert main.units == {656: 1, 650: 213}
         assert (main.storage_capacity.wood, main.storage_capacity.food) == (7000, 0)
         # The client divides the D<resource> deltas by ten to get an hourly rate.

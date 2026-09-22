@@ -82,7 +82,7 @@ class CastleService(BaseService):
         Example:
             details = client.castle.get_details(12345)
             if details:
-                print(f"Wood: {details.resources.wood}, units: {details.units}")
+                print(f"Wood: {details.wood}, units: {details.units}")
         """
         response = self.request(GetDetailedCastleRequest(), GetDetailedCastleResponse, timeout=timeout)
         return response.castle(castle_id)

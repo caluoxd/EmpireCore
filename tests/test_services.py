@@ -797,7 +797,7 @@ class TestCastleQueries:
 
         assert details is not None
         assert details.castle_id == 16656989
-        assert (details.resources.wood, details.resources.stone, details.resources.food) == (800, 800, 800)
+        assert (details.wood, details.stone, details.food) == (800, 800, 800)
         assert details.units == {649: 18}
         # The server ignores the payload and lists every castle; the id is matched client-side.
         assert conn(client).request_payloads == [("dcl", {})]
