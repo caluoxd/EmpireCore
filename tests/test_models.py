@@ -668,11 +668,29 @@ class TestPositionalArrayParsers:
         assert item.player_id == -1
         assert item.type_name == "EMPTY"
 
-    def test_map_area_item_owner_index_depends_on_the_type(self):
-        # Type 1 reports the castle id (field 3); capital-likes report the
-        # player id (field 4).
-        assert MapAreaItem.from_list([MapItemType.CASTLE, 1, 2, 900, 4242]).owner_id == 900
-        assert MapAreaItem.from_list([MapItemType.CAPITAL, 1, 2, 900, 4242]).owner_id == 4242
+    @pytest.mark.parametrize(
+        "item_type",
+        [
+            MapItemType.CASTLE,
+            MapItemType.CAPITAL,
+            MapItemType.OUTPOST,
+            MapItemType.KINGDOM_CASTLE,
+            MapItemType.METRO,
+            MapItemType.MONUMENT,
+            MapItemType.LABORATORY,
+        ],
+    )
+    def test_map_area_item_owner_is_field_four_for_every_owned_type(self, item_type):
+        item = MapAreaItem.from_list([item_type, 1, 2, 900, 4242])
+        assert (item.location_id, item.owner_id, item.player_id) == (900, 4242, 4242)
+
+    def test_map_area_item_empty_castle_slot_has_no_owner(self):
+        # A free plot comes as a four-field row: [1, x, y, -1].
+        item = MapAreaItem.from_list([MapItemType.CASTLE, 632, 204, -1])
+        assert (item.location_id, item.owner_id) == (-1, -1)
+
+    def test_map_area_item_camp_has_no_location_id(self):
+        assert MapAreaItem.from_list([MapItemType.DUNGEON, 1, 2, 300, 5, -1, 0]).location_id == -1
 
     def test_map_area_item_unknown_type_name_is_labeled(self):
         assert MapAreaItem.from_list([9999, 1, 2, 3]).type_name == "UNKNOWN_9999"

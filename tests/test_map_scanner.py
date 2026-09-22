@@ -87,7 +87,7 @@ class _FakeConnection:
         if (cx, cy) in self.payloads:
             return Packet(raw_data="", is_xml=False, command_id="gaa", payload=self.payloads[(cx, cy)])
 
-        ai = [[1, payload["AX1"] + 5, payload["AY1"] + 5, 42]] if (cx, cy) in self.content_chunks else []
+        ai = [[1, payload["AX1"] + 5, payload["AY1"] + 5, 900, 42]] if (cx, cy) in self.content_chunks else []
         return Packet(raw_data="", is_xml=False, command_id="gaa", payload={"AI": ai, "OI": []})
 
 
@@ -271,7 +271,7 @@ class TestMalformedResponses:
     def test_garbage_ai_entry_does_not_abort_scan(self):
         fake = _FakeClient(
             content_chunks=set(),
-            payloads={(1, 1): {"AI": [["?", "?", "?", "?"], [1, 95, 95, 42]], "OI": []}},
+            payloads={(1, 1): {"AI": [["?", "?", "?", "?"], [1, 95, 95, 900, 42]], "OI": []}},
         )
         result = _make_scanner(fake).scan_chunks(
             kingdom=Kingdom.GREEN, chunks=[(1, 1), (2, 2)], item_types=[], chunk_delay=0
@@ -332,7 +332,7 @@ class TestMalformedResponses:
             content_chunks=set(),
             payloads={
                 (1, 1): {
-                    "AI": [[31, 0, 996], [31, 91, 900], [1, 100, 200, 4242]],
+                    "AI": [[31, 0, 996], [31, 91, 900], [1, 100, 200, 900, 4242]],
                     "OI": [],
                 }
             },

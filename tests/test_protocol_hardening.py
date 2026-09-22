@@ -109,9 +109,8 @@ class TestMovingFlags:
     def test_player_id_is_field_four(self):
         item = MapAreaItem.from_list(_castle_entry(10, 20, castle_id=900, player_id=4242))
         assert item.player_id == 4242
-        # owner_id keeps its historical meaning (field 3 for type 1) because
-        # the map scanner filters on it.
-        assert item.owner_id == 900
+        assert item.owner_id == 4242
+        assert item.location_id == 900
 
     def test_is_relocating_reads_field_nineteen(self):
         settled = MapAreaItem.from_list(_castle_entry(10, 20, relocating=0))
