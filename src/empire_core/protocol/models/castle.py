@@ -77,7 +77,7 @@ class CastleInfo(BasePayload):
             castle_name=parsed.name,
             x=parsed.x,
             y=parsed.y,
-            kingdom_id=parsed.kingdom,
+            kingdom_id=kingdom,
             castle_type=parsed.castle_type,
             owner_id=parsed.owner_id,
         )
@@ -125,23 +125,36 @@ class GetDetailedCastleRequest(BaseRequest):
     Get resources and units for every castle the player owns.
 
     Command: dcl
-    Payload: {} (the server ignores any castle id and lists them all)
+    Payload: {} (the game client sends {"CD": 0}; the server lists every castle either way)
     """
 
     command = "dcl"
 
 
-class DetailedCastleInfo(BasePayload):
-    """Per-castle detail from a dcl row.
+class ResourceRates(BasePayload):
+    """Hourly resource rates."""
 
-    Only wood, stone and food are typed. The other amounts (``C``, ``O``,
-    ``G``, ``A``, ``I``, ``HONEY``, ...) and the ``gpa`` block are kept raw
-    because their meaning is not confirmed.
+    wood: float = Field(alias="W", default=0.0)
+    stone: float = Field(alias="S", default=0.0)
+    food: float = Field(alias="F", default=0.0)
+
+
+_TYPED_RESOURCE_KEYS = ("W", "S", "F")
+
+
+class DetailedCastleInfo(BasePayload):
+    """Per-castle detail from a dcl row, as the client's DetailedCastleVO reads it.
+
+    Wood, stone and food are typed. The other amounts (``C`` is coal, then
+    ``O``, ``G``, ``A``, ``I``, ``HONEY``, ...) and the rest of the ``gpa``
+    block stay reachable raw.
     """
 
     castle_id: int = Field(alias="AID")
     kingdom_id: int = Field(alias="KID", default=0)
     resources: ResourceAmount = Field(default_factory=ResourceAmount)
+    storage_capacity: ResourceAmount = Field(default_factory=ResourceAmount)
+    production: ResourceRates = Field(default_factory=ResourceRates)
     raw_units: list[list[int]] = Field(alias="AC", default_factory=list)
     raw_production: dict[str, Any] = Field(alias="gpa", default_factory=dict)
 
@@ -153,11 +166,20 @@ class DetailedCastleInfo(BasePayload):
         data = dict(data)
         # Amounts arrive as floats ("W": 7000.0) and tick fractionally.
         amounts = {}
-        for key in ("W", "S", "F"):
+        for key in _TYPED_RESOURCE_KEYS:
             value = data.get(key)
             if value is not None:
                 amounts[key] = int(value) if isinstance(value, float) else value
         data["resources"] = ResourceAmount(**amounts)
+        gpa = data.get("gpa")
+        if isinstance(gpa, dict):
+            data["storage_capacity"] = ResourceAmount(
+                **{key: gpa[f"MR{key}"] for key in _TYPED_RESOURCE_KEYS if f"MR{key}" in gpa}
+            )
+            # The client divides the D<resource> delta by ten for the hourly rate.
+            data["production"] = ResourceRates(
+                **{key: gpa[f"D{key}"] / 10 for key in _TYPED_RESOURCE_KEYS if f"D{key}" in gpa}
+            )
         return data
 
     @property

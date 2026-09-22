@@ -278,7 +278,7 @@ GOLDEN_GCL = {
                 {"AI": gdi_location_row(4, 630, 244, 16656989, 17743260, "OP1", 0), "TA": 0},
             ],
         },
-        {"KID": 2, "AI": [{"AI": gdi_location_row(12, 100, 200, 16700000, 17743260, "Sands", 2)}]},
+        {"KID": 2, "AI": [{"AI": gdi_location_row(12, 100, 200, 16700000, 17743260, "Sands", 0)}]},
     ],
 }
 
@@ -411,7 +411,14 @@ class TestGoldenCastlePayloads:
         # Fractional amounts are truncated, not rejected.
         assert (main.resources.wood, main.resources.stone, main.resources.food) == (7000, 6999, 7000)
         assert main.units == {656: 1, 650: 213}
-        assert main.raw_production["DW"] == 2239
+        assert (main.storage_capacity.wood, main.storage_capacity.food) == (7000, 0)
+        # The client divides the D<resource> deltas by ten to get an hourly rate.
+        assert (main.production.wood, main.production.stone, main.production.food) == (223.9, 195.2, 350.2)
+        assert main.raw_production["P"] == 80
+
+    def test_dcl_castle_without_gpa_has_zero_rates(self):
+        castle = GetDetailedCastleResponse.model_validate(GOLDEN_DCL).castles[1]
+        assert (castle.production.wood, castle.storage_capacity.wood) == (0.0, 0)
 
     def test_dcl_castle_lookup_by_id(self):
         response = GetDetailedCastleResponse.model_validate(GOLDEN_DCL)
