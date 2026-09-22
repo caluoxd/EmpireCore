@@ -13,13 +13,32 @@ Commands:
 
 from __future__ import annotations
 
-from pydantic import ConfigDict, Field
+import logging
+from typing import Any
+
+from pydantic import ConfigDict, Field, model_validator
 
 from .base import BasePayload, BaseRequest, BaseResponse, Position, ResourceAmount
+from .player import PlayerCastle
+
+logger = logging.getLogger(__name__)
 
 # =============================================================================
 # GCL - Get Castles List
 # =============================================================================
+
+
+def _kingdom_entries(section: Any) -> list[tuple[int, dict[str, Any]]]:
+    """(kingdom id, entry) pairs from a ``C: [{KID, AI: [...]}]`` section."""
+    pairs: list[tuple[int, dict[str, Any]]] = []
+    if not isinstance(section, list):
+        return pairs
+    for kingdom in section:
+        if not isinstance(kingdom, dict) or not isinstance(kingdom.get("AI"), list):
+            continue
+        kid = kingdom.get("KID", 0)
+        pairs.extend((kid, entry) for entry in kingdom["AI"] if isinstance(entry, dict))
+    return pairs
 
 
 class GetCastlesRequest(BaseRequest):
@@ -34,33 +53,66 @@ class GetCastlesRequest(BaseRequest):
 
 
 class CastleInfo(BasePayload):
-    """Basic castle information."""
+    """One of the player's locations, from a gcl row."""
 
-    castle_id: int = Field(alias="CID", default=0)
-    castle_name: str = Field(alias="CN", default="")
-    x: int = Field(alias="X", default=0)
-    y: int = Field(alias="Y", default=0)
-    kingdom_id: int = Field(alias="KID", default=0)
-    castle_type: int = Field(alias="CT", default=0)  # 0=main, 1=outpost, etc.
-    level: int = Field(alias="L", default=1)
+    castle_id: int = 0
+    castle_name: str = ""
+    x: int = 0
+    y: int = 0
+    kingdom_id: int = 0
+    castle_type: int = 0  # 1=castle, 3=capital, 4=outpost, 12=kingdom castle, 22=metro
+    owner_id: int = 0
 
     @property
     def position(self) -> Position:
         """Get castle position as Position object."""
         return Position(X=self.x, Y=self.y, KID=self.kingdom_id)
 
+    @classmethod
+    def from_row(cls, row: list, kingdom: int = 0) -> CastleInfo:
+        """Parse a ``gcl.C[].AI[].AI`` row; the layout is the gdi one."""
+        parsed = PlayerCastle.from_list(row, kingdom)
+        return cls(
+            castle_id=parsed.location_id,
+            castle_name=parsed.name,
+            x=parsed.x,
+            y=parsed.y,
+            kingdom_id=parsed.kingdom,
+            castle_type=parsed.castle_type,
+            owner_id=parsed.owner_id,
+        )
+
 
 class GetCastlesResponse(BaseResponse):
     """
-    Response containing list of player's castles.
+    The player's castle list.
 
     Command: gcl
-    Payload: {"C": [castle_info, ...]}
+    Payload: {"PID": player_id, "C": [{"KID": kingdom, "AI": [{"AI": [row...]}, ...]}, ...]}
+
+    Rows are flattened across kingdoms into ``castles``.
     """
 
     command = "gcl"
 
-    castles: list[CastleInfo] = Field(alias="C", default_factory=list)
+    player_id: int = Field(alias="PID", default=0)
+    castles: list[CastleInfo] = Field(default_factory=list)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _flatten_kingdoms(cls, data: Any) -> Any:
+        if not isinstance(data, dict) or "C" not in data:
+            return data
+        data = dict(data)
+        castles = []
+        for kid, entry in _kingdom_entries(data.pop("C")):
+            row = entry.get("AI")
+            if not (isinstance(row, list) and len(row) > 10):
+                logger.debug(f"Skipping malformed gcl row: {entry!r}")
+                continue
+            castles.append(CastleInfo.from_row(row, kid))
+        data["castles"] = castles
+        return data
 
 
 # =============================================================================
@@ -70,61 +122,75 @@ class GetCastlesResponse(BaseResponse):
 
 class GetDetailedCastleRequest(BaseRequest):
     """
-    Get detailed information about a specific castle.
+    Get resources and units for every castle the player owns.
 
     Command: dcl
-    Payload: {"CID": castle_id}
+    Payload: {} (the server ignores any castle id and lists them all)
     """
 
     command = "dcl"
 
-    castle_id: int = Field(alias="CID")
 
+class DetailedCastleInfo(BasePayload):
+    """Per-castle detail from a dcl row.
 
-class BuildingInfo(BasePayload):
-    """Building information within a castle."""
+    Only wood, stone and food are typed. The other amounts (``C``, ``O``,
+    ``G``, ``A``, ``I``, ``HONEY``, ...) and the ``gpa`` block are kept raw
+    because their meaning is not confirmed.
+    """
 
-    building_id: int = Field(alias="BID", default=0)
-    building_type: int = Field(alias="BT", default=0)
-    level: int = Field(alias="L", default=0)
-    x: int = Field(alias="X", default=0)
-    y: int = Field(alias="Y", default=0)
-    status: int = Field(alias="S", default=0)  # 0=normal, 1=upgrading, 2=damaged
-    health: int = Field(alias="H", default=100)
+    castle_id: int = Field(alias="AID")
+    kingdom_id: int = Field(alias="KID", default=0)
+    resources: ResourceAmount = Field(default_factory=ResourceAmount)
+    raw_units: list[list[int]] = Field(alias="AC", default_factory=list)
+    raw_production: dict[str, Any] = Field(alias="gpa", default_factory=dict)
 
-
-class DetailedCastleInfo(CastleInfo):
-    """Detailed castle information including buildings and resources."""
-
-    buildings: list[BuildingInfo] = Field(alias="B", default_factory=list)
-    resources: ResourceAmount | None = Field(alias="R", default=None)
-    population: int = Field(alias="P", default=0)
-    max_population: int = Field(alias="MP", default=0)
-    raw_items: list[list[int]] = Field(alias="AC", default_factory=list)
+    @model_validator(mode="before")
+    @classmethod
+    def _typed_resources(cls, data: Any) -> Any:
+        if not isinstance(data, dict) or "resources" in data:
+            return data
+        data = dict(data)
+        # Amounts arrive as floats ("W": 7000.0) and tick fractionally.
+        amounts = {}
+        for key in ("W", "S", "F"):
+            value = data.get(key)
+            if value is not None:
+                amounts[key] = int(value) if isinstance(value, float) else value
+        data["resources"] = ResourceAmount(**amounts)
+        return data
 
     @property
-    def items(self) -> dict[int, int]:
-        """
-        Get items/inventory as a dict {item_id: count}.
-        Parsed from raw 'AC' list.
-        """
-        result = {}
-        for item in self.raw_items:
-            if len(item) >= 2:
-                result[item[0]] = item[1]
-        return result
+    def units(self) -> dict[int, int]:
+        """Unit stacks stationed here as {unit_id: count}, from the ``AC`` pairs."""
+        return {row[0]: row[1] for row in self.raw_units if len(row) >= 2}
 
 
 class GetDetailedCastleResponse(BaseResponse):
     """
-    Response containing detailed castle information.
+    Detail for every castle the player owns.
 
     Command: dcl
+    Payload: {"PID": player_id, "C": [{"KID": kingdom, "AI": [{"AID": castle_id, "W": ..., "AC": [...]}, ...]}]}
     """
 
     command = "dcl"
 
-    castle: DetailedCastleInfo | None = Field(alias="C", default=None)
+    player_id: int = Field(alias="PID", default=0)
+    castles: list[DetailedCastleInfo] = Field(default_factory=list)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _flatten_kingdoms(cls, data: Any) -> Any:
+        if not isinstance(data, dict) or "C" not in data:
+            return data
+        data = dict(data)
+        data["castles"] = [{**entry, "KID": kid} for kid, entry in _kingdom_entries(data.pop("C"))]
+        return data
+
+    def castle(self, castle_id: int) -> DetailedCastleInfo | None:
+        """The listed castle with this id, or None."""
+        return next((c for c in self.castles if c.castle_id == castle_id), None)
 
 
 # =============================================================================
@@ -299,7 +365,6 @@ __all__ = [
     "GetDetailedCastleRequest",
     "GetDetailedCastleResponse",
     "DetailedCastleInfo",
-    "BuildingInfo",
     # JCA - Select Castle
     "SelectCastleRequest",
     "SelectCastleResponse",

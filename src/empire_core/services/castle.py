@@ -74,15 +74,18 @@ class CastleService(BaseService):
 
     def get_details(self, castle_id: int, timeout: float = 5.0) -> DetailedCastleInfo | None:
         """
-        Get detailed information about a specific castle.
+        Get resources and stationed units for one castle.
+
+        The server answers with every castle; the one asked for is picked
+        out here, and None means it was not in the list.
 
         Example:
             details = client.castle.get_details(12345)
             if details:
-                print(f"Buildings: {len(details.buildings)}")
+                print(f"Wood: {details.resources.wood}, units: {details.units}")
         """
-        request = GetDetailedCastleRequest(CID=castle_id)
-        return self.request(request, GetDetailedCastleResponse, timeout=timeout).castle
+        response = self.request(GetDetailedCastleRequest(), GetDetailedCastleResponse, timeout=timeout)
+        return response.castle(castle_id)
 
     # =========================================================================
     # Castle Selection

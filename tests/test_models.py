@@ -240,22 +240,46 @@ GOLDEN_AIN = {
 }
 
 GOLDEN_DCL = {
-    "C": {
-        "CID": 12345,
-        "CN": "Main Castle",
-        "X": 640,
-        "Y": 655,
-        "KID": 0,
-        "L": 70,
-        "B": [
-            {"BID": 1, "BT": 12, "L": 5, "X": 3, "Y": 4, "S": 0, "H": 100},
-            {"BID": 2, "BT": 40, "L": 1, "X": 8, "Y": 9, "S": 2, "H": 40},
-        ],
-        "R": {"W": 100000, "S": 90000, "F": 5000, "C": 12345, "R": 300},
-        "P": 1200,
-        "MP": 1500,
-        "AC": [[201, 5], [305, 2], [999]],
-    }
+    "PID": 17743260,
+    "C": [
+        {
+            "KID": 0,
+            "AI": [
+                {
+                    "AID": 16654596,
+                    "W": 7000.0,
+                    "S": 6999.5,
+                    "F": 7000.0,
+                    "C": 0.0,
+                    "O": 0.0,
+                    "HONEY": 0.0,
+                    "D": 57,
+                    "gpa": {"DW": 2239, "DS": 1952, "DF": 3502, "MRW": 7000, "P": 80},
+                    # Unit stacks as positional pairs; the trailing 1-element
+                    # entry is the kind of short row the server does send.
+                    "AC": [[656, 1], [650, 213], [999]],
+                    "HI": [[11, 5]],
+                    "MC": 5,
+                    "B": 1,
+                },
+                {"AID": 16656989, "W": 800.0, "S": 800.0, "F": 800.0, "AC": [[649, 18]], "B": 0},
+            ],
+        }
+    ],
+}
+
+GOLDEN_GCL = {
+    "PID": 17743260,
+    "C": [
+        {
+            "KID": 0,
+            "AI": [
+                {"AI": gdi_location_row(1, 632, 243, 16654596, 17743260, "Château Heimlin", 0), "AOT": -1, "TA": -1},
+                {"AI": gdi_location_row(4, 630, 244, 16656989, 17743260, "OP1", 0), "TA": 0},
+            ],
+        },
+        {"KID": 2, "AI": [{"AI": gdi_location_row(12, 100, 200, 16700000, 17743260, "Sands", 2)}]},
+    ],
 }
 
 GOLDEN_GDI = {
@@ -355,38 +379,44 @@ class TestGoldenAllianceInfo:
 
 
 class TestGoldenCastlePayloads:
-    def test_gcl_list_parses(self):
-        payload = {
-            "C": [
-                {"CID": 12345, "CN": "Main Castle", "X": 640, "Y": 655, "KID": 0, "CT": 0, "L": 70},
-                {"CID": 55555, "CN": "Outpost North", "X": 700, "Y": 700, "KID": 0, "CT": 1, "L": 12},
-            ]
-        }
-        response = GetCastlesResponse.model_validate(payload)
-        assert [(c.castle_id, c.castle_name) for c in response.castles] == [
-            (12345, "Main Castle"),
-            (55555, "Outpost North"),
+    def test_gcl_rows_are_flattened_across_kingdoms(self):
+        response = GetCastlesResponse.model_validate(GOLDEN_GCL)
+        assert response.player_id == 17743260
+        assert [(c.castle_id, c.castle_name, c.x, c.y, c.kingdom_id, c.castle_type) for c in response.castles] == [
+            (16654596, "Château Heimlin", 632, 243, 0, 1),
+            (16656989, "OP1", 630, 244, 0, 4),
+            (16700000, "Sands", 100, 200, 2, 12),
         ]
-        assert response.castles[0].position.kingdom == 0
+        assert response.castles[0].owner_id == 17743260
+        assert response.castles[2].position.kingdom == 2
+
+    def test_gcl_without_a_castle_section_is_empty(self):
+        assert GetCastlesResponse.model_validate({"PID": 1}).castles == []
+
+    def test_gcl_skips_rows_too_short_to_name_a_castle(self):
+        payload = {
+            "C": [{"KID": 0, "AI": [{"AI": [1, 2, 3]}, "junk", {"AI": gdi_location_row(1, 1, 1, 5, 9, "ok", 0)}]}]
+        }
+        assert [c.castle_id for c in GetCastlesResponse.model_validate(payload).castles] == [5]
 
     def test_registry_parses_dcl(self):
         assert isinstance(parse_response("dcl", GOLDEN_DCL), GetDetailedCastleResponse)
 
-    def test_dcl_buildings_and_resources(self):
-        castle = GetDetailedCastleResponse.model_validate(GOLDEN_DCL).castle
-        assert castle is not None
-        assert castle.castle_name == "Main Castle"
-        assert [(b.building_id, b.building_type, b.level) for b in castle.buildings] == [(1, 12, 5), (2, 40, 1)]
-        assert castle.buildings[1].status == 2
-        assert castle.buildings[1].health == 40
-        assert castle.resources is not None
-        assert castle.resources.coins == 12345
-        assert (castle.population, castle.max_population) == (1200, 1500)
+    def test_dcl_lists_every_castle_with_resources_and_units(self):
+        response = GetDetailedCastleResponse.model_validate(GOLDEN_DCL)
+        assert response.player_id == 17743260
+        assert [c.castle_id for c in response.castles] == [16654596, 16656989]
+        main = response.castles[0]
+        assert main.kingdom_id == 0
+        # Fractional amounts are truncated, not rejected.
+        assert (main.resources.wood, main.resources.stone, main.resources.food) == (7000, 6999, 7000)
+        assert main.units == {656: 1, 650: 213}
+        assert main.raw_production["DW"] == 2239
 
-    def test_dcl_item_array_skips_short_rows(self):
-        castle = GetDetailedCastleResponse.model_validate(GOLDEN_DCL).castle
-        assert castle is not None
-        assert castle.items == {201: 5, 305: 2}
+    def test_dcl_castle_lookup_by_id(self):
+        response = GetDetailedCastleResponse.model_validate(GOLDEN_DCL)
+        assert response.castle(16656989).units == {649: 18}
+        assert response.castle(1) is None
 
 
 class TestGoldenPlayerInfo:
@@ -757,16 +787,15 @@ class TestMalformedNestedResponsePayloads:
         with pytest.raises(ValidationError):
             AllianceInfo.model_validate({"AID": 1, "M": ["junk"]})
 
-    def test_one_bad_building_discards_the_castle(self):
-        payload = {"C": {"CID": 1, "B": [{"BID": 1}, {"BID": "not-an-int"}]}}
+    def test_drifted_unit_array_is_a_validation_error(self):
         with pytest.raises(ValidationError):
-            GetDetailedCastleResponse.model_validate(payload)
+            GetDetailedCastleResponse.model_validate({"C": [{"AI": [{"AID": 1, "AC": "junk"}]}]})
+        with pytest.raises(ValidationError):
+            GetDetailedCastleResponse.model_validate({"C": [{"AI": [{"AID": 1, "AC": [[201, "x"]]}]}]})
 
-    def test_drifted_item_array_is_a_validation_error(self):
+    def test_dcl_castle_without_an_id_is_a_validation_error(self):
         with pytest.raises(ValidationError):
-            GetDetailedCastleResponse.model_validate({"C": {"CID": 1, "AC": "junk"}})
-        with pytest.raises(ValidationError):
-            GetDetailedCastleResponse.model_validate({"C": {"CID": 1, "AC": [[201, "x"]]}})
+            GetDetailedCastleResponse.model_validate({"C": [{"AI": [{"W": 1.0}]}]})
 
     def test_drifted_defense_array_is_a_validation_error(self):
         with pytest.raises(ValidationError):
