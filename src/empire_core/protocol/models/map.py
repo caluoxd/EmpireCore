@@ -132,12 +132,12 @@ class GetMapAreaRequest(BaseRequest):
     y2: int = Field(alias="AY2")
 
 
-# Indices into a gaa type-1 (CASTLE) raw entry. The live server sends 20
+# Indices into an owned-location raw entry. The live server sends 20
 # fields per castle (reverse-engineered):
-#   [type, x, y, castle_id, player_id, lvl, lvl, lvl, ?, ?, name,
+#   [type, x, y, location_id, player_id, lvl, lvl, lvl, ?, ?, name,
 #    0, 0, -1, -1, -1, 0, alliance_id, [], relocating_flag]
-# Note the id at field 3 is the *castle* id, which is what ``owner_id``
-# exposes for type-1 entries; the player id lives at field 4.
+# A free castle plot is the four-field row [1, x, y, -1].
+_LOCATION_ID_FIELD = 3
 _PLAYER_ID_FIELD = 4
 _RELOCATING_FIELD = 19  # 1 while the castle is in transit, 0 when settled
 
@@ -180,11 +180,12 @@ class MapAreaItem(BasePayload):
 
     AI array format: [[type, x, y, location_id, player_id, ...], ...]
 
-    Field 3 is the location (castle/outpost) id for type-1 entries and the
-    player id for the capital-like types -- see ``owner_id`` and ``player_id``.
+    For every owned type, field 3 is the location (castle/outpost) id and
+    field 4 the owning player's id -- see ``location_id`` and ``owner_id``.
     An NPC camp (type 2) has no owner at all: its field 3 is how long ago it was
     spied, so ``owner_id`` stays -1 and the camp's own fields are exposed by
-    ``victory_count`` and the properties beside it.
+    ``victory_count`` and the properties beside it. An invasion camp names
+    itself in field 4, so ``owner_id`` keeps field 3 there.
 
     Common types (see MapItemType enum):
     - 1: Player main castle (``is_relocating`` tells you if it is in transit)
@@ -206,16 +207,12 @@ class MapAreaItem(BasePayload):
         """Parse from AI array entry."""
         item_type = data[0] if len(data) > 0 else 0
 
-        if (
-            item_type in (MapItemType.CAPITAL, MapItemType.OUTPOST, MapItemType.METRO, MapItemType.KINGS_TOWER)
-            and len(data) > 4
-        ):
-            owner_id = data[4]
-        elif item_type == MapItemType.DUNGEON:
-            # No owner: field 3 is the espionage age, not an id.
+        if item_type == MapItemType.DUNGEON:
             owner_id = -1
+        elif item_type in INVASION_AREA_TYPES:
+            owner_id = data[_LOCATION_ID_FIELD] if len(data) > _LOCATION_ID_FIELD else -1
         else:
-            owner_id = data[3] if len(data) > 3 else -1
+            owner_id = data[_PLAYER_ID_FIELD] if len(data) > _PLAYER_ID_FIELD else -1
 
         return cls(
             item_type=item_type,
@@ -349,15 +346,18 @@ class MapAreaItem(BasePayload):
 
     @property
     def player_id(self) -> int:
-        """Id of the player who owns this location, or -1 if not reported.
-
-        This is raw field 4. It differs from ``owner_id``, which for type-1
-        (CASTLE) entries carries the *castle* id from field 3 -- keyed by that,
-        a castle cannot be matched against ``AllianceMember.player_id``.
-        """
+        """Id of the player who owns this location (raw field 4), or -1 if not reported."""
         if len(self.raw_data) <= _PLAYER_ID_FIELD:
             return -1
         value = self.raw_data[_PLAYER_ID_FIELD]
+        return value if isinstance(value, int) and not isinstance(value, bool) else -1
+
+    @property
+    def location_id(self) -> int:
+        """The area id of an owned location (raw field 3), or -1 for a camp or a free plot."""
+        if self.item_type == MapItemType.DUNGEON or len(self.raw_data) <= _LOCATION_ID_FIELD:
+            return -1
+        value = self.raw_data[_LOCATION_ID_FIELD]
         return value if isinstance(value, int) and not isinstance(value, bool) else -1
 
     @property

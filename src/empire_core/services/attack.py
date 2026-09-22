@@ -586,9 +586,9 @@ class AttackService(BaseService):
         """The level of whoever owns a tile, from the scan of that tile."""
         if area is None:
             return None
-        # A castle row's field 3 is the location id, which is the owner record's
-        # object id; the capital-like types put the player id there instead. Try
-        # both, then settle for the only record a one-tile scan returned.
+        # The row's owner id is the owner record's PID; older callers passed
+        # the location id, which is its object id. Accept both, then settle
+        # for the only record a one-tile scan returned.
         owner = next(
             (o for o in area.objects if owner_id in (o.object_id, o.owner_id) and o.level),
             None,
