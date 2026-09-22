@@ -46,14 +46,18 @@ class GetCastlesRequest(BaseRequest):
     Get list of player's castles.
 
     Command: gcl
-    Payload: {} (empty)
+    Payload: {} (the game client sends {"PID": own_player_id})
     """
 
     command = "gcl"
 
 
 class CastleInfo(BasePayload):
-    """One of the player's locations, from a gcl row."""
+    """One of the player's locations: a gcl entry plus its positional row.
+
+    The row layout is InteractiveMapobjectVO.parseAreaInfo's; the entry
+    keys around it carry the gate and abandon timers.
+    """
 
     castle_id: int = Field(default=0)
     castle_name: str = Field(default="")
@@ -62,6 +66,17 @@ class CastleInfo(BasePayload):
     kingdom_id: int = Field(default=0)
     castle_type: int = Field(default=0)  # 1=castle, 3=capital, 4=outpost, 12=kingdom castle, 22=metro
     owner_id: int = Field(default=0)
+    occupier_id: int = Field(default=-1)
+    keep_level: int = Field(default=0)
+    wall_level: int = Field(default=0)
+    gate_level: int = Field(default=0)
+    tower_level: int = Field(default=0)
+    moat_level: int = Field(default=0)
+    open_gate_seconds: int = Field(alias="OGT", default=0)
+    open_gate_counter: int = Field(alias="OGC", default=0)
+    abandon_outpost_seconds: int = Field(alias="AOT", default=-1)
+    cancel_abandon_seconds: int = Field(alias="CAT", default=-1)
+    no_abandon_seconds: int = Field(alias="TA", default=-1)
 
     @property
     def position(self) -> Position:
@@ -69,9 +84,11 @@ class CastleInfo(BasePayload):
         return Position(X=self.x, Y=self.y, KID=self.kingdom_id)
 
     @classmethod
-    def from_row(cls, row: list, kingdom: int = 0) -> CastleInfo:
-        """Parse a ``gcl.C[].AI[].AI`` row; the layout is the gdi one."""
+    def from_entry(cls, entry: dict[str, Any], kingdom: int = 0) -> CastleInfo:
+        """Parse a ``gcl.C[].AI[]`` entry; its ``AI`` row shares the gdi layout."""
+        row = entry["AI"]
         parsed = PlayerCastle.from_list(row, kingdom)
+        timers = {key: entry[key] for key in ("OGT", "OGC", "AOT", "CAT", "TA") if key in entry}
         return cls(
             castle_id=parsed.location_id,
             castle_name=parsed.name,
@@ -80,6 +97,13 @@ class CastleInfo(BasePayload):
             kingdom_id=kingdom,
             castle_type=parsed.castle_type,
             owner_id=parsed.owner_id,
+            occupier_id=parsed.capturer_id,
+            keep_level=row[5],
+            wall_level=row[6],
+            gate_level=row[7],
+            tower_level=row[8],
+            moat_level=row[9],
+            **timers,
         )
 
 
@@ -88,9 +112,9 @@ class GetCastlesResponse(BaseResponse):
     The player's castle list.
 
     Command: gcl
-    Payload: {"PID": player_id, "C": [{"KID": kingdom, "AI": [{"AI": [row...]}, ...]}, ...]}
+    Payload: {"PID": player_id, "C": [{"KID": kingdom, "AI": [{"AI": [row...], "AOT": .., "TA": ..}, ...]}, ...]}
 
-    Rows are flattened across kingdoms into ``castles``.
+    Entries are flattened across kingdoms into ``castles``.
     """
 
     command = "gcl"
@@ -110,7 +134,7 @@ class GetCastlesResponse(BaseResponse):
             if not (isinstance(row, list) and len(row) > 10):
                 logger.debug(f"Skipping malformed gcl row: {entry!r}")
                 continue
-            castles.append(CastleInfo.from_row(row, kid))
+            castles.append(CastleInfo.from_entry(entry, kid))
         data["castles"] = castles
         return data
 
@@ -122,7 +146,7 @@ class GetCastlesResponse(BaseResponse):
 
 class GetDetailedCastleRequest(BaseRequest):
     """
-    Get resources and units for every castle the player owns.
+    Get resources, units and production data for every castle the player owns.
 
     Command: dcl
     Payload: {} (the game client sends {"CD": 0}; the server lists every castle either way)
@@ -131,54 +155,164 @@ class GetDetailedCastleRequest(BaseRequest):
     command = "dcl"
 
 
-class ResourceRates(BasePayload):
-    """Hourly resource rates."""
+# Server keys of ClientConstCollectable.GROUP_LIST_RESOURCES, by field name.
+_RESOURCE_KEYS = {
+    "wood": "W",
+    "stone": "S",
+    "food": "F",
+    "coal": "C",
+    "oil": "O",
+    "glass": "G",
+    "iron": "I",
+    "aquamarine": "A",
+    "honey": "HONEY",
+    "mead": "MEAD",
+    "beef": "BEEF",
+}
+
+
+def _truncate(value: Any) -> Any:
+    """Amounts arrive as floats ("W": 7000.0) and tick fractionally."""
+    return int(value) if isinstance(value, float) else value
+
+
+class ResourceSet(BasePayload):
+    """One number per resource the client tracks per castle."""
 
     wood: float = Field(alias="W", default=0.0)
     stone: float = Field(alias="S", default=0.0)
     food: float = Field(alias="F", default=0.0)
+    coal: float = Field(alias="C", default=0.0)
+    oil: float = Field(alias="O", default=0.0)
+    glass: float = Field(alias="G", default=0.0)
+    iron: float = Field(alias="I", default=0.0)
+    aquamarine: float = Field(alias="A", default=0.0)
+    honey: float = Field(alias="HONEY", default=0.0)
+    mead: float = Field(alias="MEAD", default=0.0)
+    beef: float = Field(alias="BEEF", default=0.0)
+
+
+class CastleProductionArea(BasePayload):
+    """The ``gpa`` block of a dcl entry, as AreaDataCommonInfo, AreaDataStorageItem,
+    AreaDataMorality and AreaDataUpdater read it.
+
+    Per-resource values follow the client's key pattern and are exposed as
+    :class:`ResourceSet` properties: ``D<key>`` / 10 is the hourly production,
+    ``MR<key>`` the storage capacity, ``<key>M`` the production bonus in
+    percent and ``SAFE_<key>`` the amount safe from plunder.
+    """
+
+    population: int = Field(alias="P", default=0)
+    neutral_deco_points: int = Field(alias="NDP", default=0)
+    sickness: int = Field(alias="S", default=0)
+    riot: int = Field(alias="R", default=0)
+    guards: int = Field(alias="GRD", default=0)
+    build_speed_percent: int = Field(alias="BDB", default=100)
+    metropolis_food_bonus: float = Field(alias="MP", default=0.0)
+    unit_capacity: int = Field(alias="US", default=0)
+    auxiliary_capacity: int = Field(alias="AUS", default=0)
+    morale: int = Field(alias="M", default=0)
+    food_consumption_delta: float = Field(alias="DFC", default=0.0)
+    food_consumption_reduction_percent: int = Field(alias="FCR", default=100)
+    mead_consumption_delta: float = Field(alias="DMEADC", default=0.0)
+    mead_consumption_reduction_percent: int = Field(alias="MEADCR", default=100)
+    beef_consumption_delta: float = Field(alias="DBEEFC", default=0.0)
+    beef_consumption_reduction_percent: int = Field(alias="BEEFCR", default=100)
+    barracks_speed: float = Field(alias="RS1", default=0.0)
+    workshop_speed: float = Field(alias="RS2", default=0.0)
+    defense_workshop_speed: float = Field(alias="RS3", default=0.0)
+    hospital_speed: float = Field(alias="RSH", default=0.0)
+
+    def _resource_set(self, prefix: str, suffix: str, divisor: int = 1) -> ResourceSet:
+        extra = self.model_extra or {}
+        values = {}
+        for name, key in _RESOURCE_KEYS.items():
+            raw = extra.get(f"{prefix}{key}{suffix}")
+            if isinstance(raw, (int, float)) and not isinstance(raw, bool):
+                values[name] = raw / divisor
+        return ResourceSet(**values)
+
+    @property
+    def production(self) -> ResourceSet:
+        """Hourly production per resource (``D<key>`` / 10)."""
+        return self._resource_set("D", "", 10)
+
+    @property
+    def storage_capacity(self) -> ResourceSet:
+        """Storage capacity per resource (``MR<key>``)."""
+        return self._resource_set("MR", "")
+
+    @property
+    def production_bonus_percent(self) -> ResourceSet:
+        """Production bonus per resource in percent (``<key>M``); 100 means no bonus."""
+        return self._resource_set("", "M")
+
+    @property
+    def safe_amount(self) -> ResourceSet:
+        """Amount per resource safe from plunder (``SAFE_<key>``)."""
+        return self._resource_set("SAFE_", "")
+
+    @property
+    def food_consumption_per_hour(self) -> float:
+        """Hourly food consumption (``DFC`` / 10)."""
+        return self.food_consumption_delta / 10
 
 
 class DetailedCastleInfo(BasePayload):
-    """Per-castle detail from a dcl row, as the client's DetailedCastleVO reads it.
-
-    Wood, stone and food are typed. The other amounts (``C`` is coal, then
-    ``O``, ``G``, ``A``, ``I``, ``HONEY``, ...) and the rest of the ``gpa``
-    block stay reachable raw.
-    """
+    """Per-castle detail from a dcl entry, as the client's DetailedCastleVO reads it."""
 
     castle_id: int = Field(alias="AID")
     kingdom_id: int = Field(alias="KID", default=0)
     wood: int = Field(alias="W", default=0)
     stone: int = Field(alias="S", default=0)
     food: int = Field(alias="F", default=0)
+    coal: int = Field(alias="C", default=0)
+    oil: int = Field(alias="O", default=0)
+    glass: int = Field(alias="G", default=0)
+    iron: int = Field(alias="I", default=0)
+    aquamarine: int = Field(alias="A", default=0)
+    honey: int = Field(alias="HONEY", default=0)
+    mead: int = Field(alias="MEAD", default=0)
+    beef: int = Field(alias="BEEF", default=0)
+    defense_value: int = Field(alias="D", default=0)
+    has_barracks: bool = Field(alias="B", default=False)
+    has_siege_workshop: bool = Field(alias="WS", default=False)
+    has_defense_workshop: bool = Field(alias="DW", default=False)
+    has_hospital: bool = Field(alias="H", default=False)
+    market_carriages: int = Field(alias="MC", default=0)
+    open_gate_seconds: int = Field(alias="OGT", default=0)
+    abandon_outpost_seconds: int = Field(alias="AOT", default=-1)
     raw_units: list[list[int]] = Field(alias="AC", default_factory=list)
-    raw_production: dict[str, Any] = Field(alias="gpa", default_factory=dict)
+    raw_stronghold_units: list[list[int]] = Field(alias="SHI", default_factory=list)
+    raw_hospital_units: list[list[int]] = Field(alias="HI", default_factory=list)
+    raw_travelling_units: list[list[int]] = Field(alias="TU", default_factory=list)
+    production_area: CastleProductionArea | None = Field(alias="gpa", default=None)
 
-    @field_validator("wood", "stone", "food", mode="before")
-    @classmethod
-    def _truncate_amount(cls, value: Any) -> Any:
-        # Amounts arrive as floats ("W": 7000.0) and tick fractionally.
-        return int(value) if isinstance(value, float) else value
+    _truncate_amounts = field_validator(*_RESOURCE_KEYS, mode="before")(_truncate)
+
+    @staticmethod
+    def _pairs(rows: list[list[int]]) -> dict[int, int]:
+        return {row[0]: row[1] for row in rows if len(row) >= 2}
 
     @property
     def units(self) -> dict[int, int]:
-        """Unit stacks stationed here as {unit_id: count}, from the ``AC`` pairs."""
-        return {row[0]: row[1] for row in self.raw_units if len(row) >= 2}
+        """Units stationed here as {unit_id: count}, from the ``AC`` pairs."""
+        return self._pairs(self.raw_units)
 
     @property
-    def storage_capacity(self) -> ResourceAmount:
-        """Storage capacity for wood, stone and food, from ``gpa.MR<key>``."""
-        return ResourceAmount(
-            **{key: self.raw_production[f"MR{key}"] for key in "WSF" if f"MR{key}" in self.raw_production}
-        )
+    def stronghold_units(self) -> dict[int, int]:
+        """Units in the safe house / stronghold (``SHI``)."""
+        return self._pairs(self.raw_stronghold_units)
 
     @property
-    def production(self) -> ResourceRates:
-        """Hourly production of wood, stone and food; the client reads ``gpa.D<key> / 10``."""
-        return ResourceRates(
-            **{key: self.raw_production[f"D{key}"] / 10 for key in "WSF" if f"D{key}" in self.raw_production}
-        )
+    def hospital_units(self) -> dict[int, int]:
+        """Wounded units in the hospital (``HI``)."""
+        return self._pairs(self.raw_hospital_units)
+
+    @property
+    def travelling_units(self) -> dict[int, int]:
+        """Units currently travelling (``TU``)."""
+        return self._pairs(self.raw_travelling_units)
 
 
 class GetDetailedCastleResponse(BaseResponse):
@@ -186,7 +320,7 @@ class GetDetailedCastleResponse(BaseResponse):
     Detail for every castle the player owns.
 
     Command: dcl
-    Payload: {"PID": player_id, "C": [{"KID": kingdom, "AI": [{"AID": castle_id, "W": ..., "AC": [...]}, ...]}]}
+    Payload: {"PID": player_id, "C": [{"KID": kingdom, "AI": [{"AID": castle_id, "W": .., "AC": [..], "gpa": {..}}]}]}
     """
 
     command = "dcl"
@@ -380,6 +514,8 @@ __all__ = [
     "GetDetailedCastleRequest",
     "GetDetailedCastleResponse",
     "DetailedCastleInfo",
+    "CastleProductionArea",
+    "ResourceSet",
     # JCA - Select Castle
     "SelectCastleRequest",
     "SelectCastleResponse",
