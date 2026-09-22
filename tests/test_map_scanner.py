@@ -417,6 +417,29 @@ class TestChunkRetry:
             _make_scanner(fake).scan_chunks(kingdom=Kingdom.GREEN, chunks=[(1, 1)], item_types=[], chunk_delay=0)
 
 
+class TestUnclaimedOutposts:
+    UNCLAIMED = [int(MapItemType.OUTPOST), 630, 205, 14824223, -300, 1, 1, 1, 0, 0, ""]
+    OWNED = [int(MapItemType.OUTPOST), 630, 244, 16656989, 17743260, 1, 1, 1, 0, 0, "OP1"]
+
+    def test_unclaimed_outposts_are_unowned(self):
+        fake = _FakeClient(content_chunks=set(), payloads={(1, 1): {"AI": [self.UNCLAIMED, self.OWNED], "OI": []}})
+        result = _make_scanner(fake).scan_chunks(
+            kingdom=Kingdom.GREEN, chunks=[(1, 1)], item_types=[MapItemType.OUTPOST], chunk_delay=0
+        )
+        assert [(i.location_id, i.owner_id) for i in result.items] == [(16656989, 17743260)]
+
+    def test_unclaimed_outposts_can_be_included(self):
+        fake = _FakeClient(content_chunks=set(), payloads={(1, 1): {"AI": [self.UNCLAIMED, self.OWNED], "OI": []}})
+        result = _make_scanner(fake).scan_chunks(
+            kingdom=Kingdom.GREEN,
+            chunks=[(1, 1)],
+            item_types=[MapItemType.OUTPOST],
+            include_unowned_types={MapItemType.OUTPOST},
+            chunk_delay=0,
+        )
+        assert [i.location_id for i in result.items] == [14824223, 16656989]
+
+
 class TestItemTypeFiltering:
     """Locks in the documented (inverted) item_types sentinel semantics."""
 

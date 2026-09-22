@@ -707,6 +707,13 @@ class TestPositionalArrayParsers:
         item = MapAreaItem.from_list([MapItemType.CASTLE, 632, 204, -1])
         assert (item.location_id, item.owner_id) == (-1, -1)
 
+    def test_map_area_item_unclaimed_outpost_has_no_owner(self):
+        # The client's OUTPOST_DEFAULT_OWNER_ID and OUTPOST_DEFAULT_AREA_ID are -300.
+        unclaimed = MapAreaItem.from_list([MapItemType.OUTPOST, 630, 205, 14824223, -300, 1, 1, 1, 0, 0, ""])
+        assert (unclaimed.location_id, unclaimed.owner_id) == (14824223, -1)
+        bare = MapAreaItem.from_list([MapItemType.OUTPOST, 630, 180, -300, -300, 0, 0, 0, 0, 0, ""])
+        assert (bare.location_id, bare.owner_id) == (-1, -1)
+
     @pytest.mark.parametrize(
         "row",
         [

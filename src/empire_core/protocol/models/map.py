@@ -242,6 +242,9 @@ class MapAreaItem(BasePayload):
             owner_id = data[_LOCATION_ID_FIELD]
         else:
             owner_id = -1
+        # An unclaimed outpost reports OUTPOST_DEFAULT_OWNER_ID (-300).
+        if isinstance(owner_id, int) and not isinstance(owner_id, bool) and owner_id < 0:
+            owner_id = -1
 
         return cls(
             item_type=item_type,
@@ -387,7 +390,8 @@ class MapAreaItem(BasePayload):
         if self.item_type not in OWNED_AREA_TYPES or len(self.raw_data) <= _PLAYER_ID_FIELD:
             return -1
         value = self.raw_data[_LOCATION_ID_FIELD]
-        return value if isinstance(value, int) and not isinstance(value, bool) else -1
+        # A bare outpost plot reports OUTPOST_DEFAULT_AREA_ID (-300).
+        return value if isinstance(value, int) and not isinstance(value, bool) and value >= 0 else -1
 
     @property
     def has_owner_field(self) -> bool:
