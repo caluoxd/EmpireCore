@@ -2,6 +2,47 @@
 
 <!-- version list -->
 
+## v0.35.0 (2026-09-22)
+
+### Bug Fixes
+
+- **castle**: Read gcl and dcl in the shape the server sends
+  ([`3210f47`](https://github.com/eschnitzler/EmpireCore/commit/3210f476a1ea764ebc709abc2ce9bce25618bf12))
+
+- **map**: A row's owner is its player id for every owned type
+  ([`4033349`](https://github.com/eschnitzler/EmpireCore/commit/403334901f4b8857c483fdc2981d3e1559d32fba))
+
+- **map**: An unclaimed outpost has no owner
+  ([`4010955`](https://github.com/eschnitzler/EmpireCore/commit/4010955c67eea797bb7c7dec1c58fa9d8f3fd8dd))
+
+- **map**: Only rows that carry an owner report one
+  ([`e35edee`](https://github.com/eschnitzler/EmpireCore/commit/e35edee2c62472be09fe30967b156cd0c5434930))
+
+### Features
+
+- **castle**: Model every gcl and dcl field the game client reads
+  ([`ace984b`](https://github.com/eschnitzler/EmpireCore/commit/ace984bd7d6e3aa7b53450b9a34ecdd7ac2c69fb))
+
+- **castle**: Typed storage and production from dcl, kingdom from the list
+  ([`df2d0fb`](https://github.com/eschnitzler/EmpireCore/commit/df2d0fbb4959665ec7398d410d157d4592fdd175))
+
+### Refactoring
+
+- **castle**: Alias each positional gcl row field to its index
+  ([`a4d20b8`](https://github.com/eschnitzler/EmpireCore/commit/a4d20b8fea03901e06f7768e59138bf9bdef51ac))
+
+- **castle**: Alias every gpa per-resource key
+  ([`bddfea7`](https://github.com/eschnitzler/EmpireCore/commit/bddfea7cb7782e7df7126ff08c591cbe0b2a0bc2))
+
+- **castle**: One aliased field per dcl wire key, derived rates as properties
+  ([`ea7a8b5`](https://github.com/eschnitzler/EmpireCore/commit/ea7a8b52f57c3ba0ce2ef1eafd6bd83fedeb6b6c))
+
+### Testing
+
+- **castle**: Narrow the optional castle before reading its units
+  ([`8d79e0c`](https://github.com/eschnitzler/EmpireCore/commit/8d79e0c9950289f81017d2df5c3d1afcee59114b))
+
+
 ## v0.34.0 (2026-09-09)
 
 ### Bug Fixes
