@@ -153,6 +153,7 @@ from .building import (
 )
 from .castle import (
     CastleInfo,
+    CastleProductionArea,
     DetailedCastleInfo,
     GetCastlesRequest,
     GetCastlesResponse,
@@ -167,6 +168,7 @@ from .castle import (
     RelocateCastleResponse,
     RenameCastleRequest,
     RenameCastleResponse,
+    ResourceSet,
     SelectCastleRequest,
     SelectCastleResponse,
 )
@@ -317,6 +319,8 @@ __all__ = [
     "GetDetailedCastleRequest",
     "GetDetailedCastleResponse",
     "DetailedCastleInfo",
+    "CastleProductionArea",
+    "ResourceSet",
     "SelectCastleRequest",
     "SelectCastleResponse",
     "RenameCastleRequest",
