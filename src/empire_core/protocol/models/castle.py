@@ -55,23 +55,24 @@ class GetCastlesRequest(BaseRequest):
 class CastleInfo(BasePayload):
     """One of the player's locations: a gcl entry plus its positional row.
 
-    The row layout is InteractiveMapobjectVO.parseAreaInfo's; the entry
-    keys around it carry the gate and abandon timers.
+    An ``AI[n]`` alias is the row index the client's
+    InteractiveMapobjectVO.parseAreaInfo reads; the other aliases are the
+    entry keys around the row.
     """
 
-    castle_id: int = Field(default=0)
-    castle_name: str = Field(default="")
-    x: int = Field(default=0)
-    y: int = Field(default=0)
-    kingdom_id: int = Field(default=0)
-    castle_type: int = Field(default=0)  # 1=castle, 3=capital, 4=outpost, 12=kingdom castle, 22=metro
-    owner_id: int = Field(default=0)
-    occupier_id: int = Field(default=-1)
-    keep_level: int = Field(default=0)
-    wall_level: int = Field(default=0)
-    gate_level: int = Field(default=0)
-    tower_level: int = Field(default=0)
-    moat_level: int = Field(default=0)
+    castle_id: int = Field(alias="AI[3]", default=0)
+    castle_name: str = Field(alias="AI[10]", default="")
+    x: int = Field(alias="AI[1]", default=0)
+    y: int = Field(alias="AI[2]", default=0)
+    kingdom_id: int = Field(alias="KID", default=0)
+    castle_type: int = Field(alias="AI[0]", default=0)  # 1=castle, 3=capital, 4=outpost, 12=kingdom castle, 22=metro
+    owner_id: int = Field(alias="AI[4]", default=0)
+    occupier_id: int = Field(alias="AI[14|15]", default=-1)  # 14 for a capital or metro, 15 for an outpost
+    keep_level: int = Field(alias="AI[5]", default=0)
+    wall_level: int = Field(alias="AI[6]", default=0)
+    gate_level: int = Field(alias="AI[7]", default=0)
+    tower_level: int = Field(alias="AI[8]", default=0)
+    moat_level: int = Field(alias="AI[9]", default=0)
     open_gate_seconds: int = Field(alias="OGT", default=0)
     open_gate_counter: int = Field(alias="OGC", default=0)
     abandon_outpost_seconds: int = Field(alias="AOT", default=-1)
@@ -88,23 +89,23 @@ class CastleInfo(BasePayload):
         """Parse a ``gcl.C[].AI[]`` entry; its ``AI`` row shares the gdi layout."""
         row = entry["AI"]
         parsed = PlayerCastle.from_list(row, kingdom)
-        timers = {key: entry[key] for key in ("OGT", "OGC", "AOT", "CAT", "TA") if key in entry}
-        return cls(
-            castle_id=parsed.location_id,
-            castle_name=parsed.name,
-            x=parsed.x,
-            y=parsed.y,
-            kingdom_id=kingdom,
-            castle_type=parsed.castle_type,
-            owner_id=parsed.owner_id,
-            occupier_id=parsed.capturer_id,
-            keep_level=row[5],
-            wall_level=row[6],
-            gate_level=row[7],
-            tower_level=row[8],
-            moat_level=row[9],
-            **timers,
-        )
+        fields: dict[str, Any] = {
+            "castle_id": parsed.location_id,
+            "castle_name": parsed.name,
+            "x": parsed.x,
+            "y": parsed.y,
+            "kingdom_id": kingdom,
+            "castle_type": parsed.castle_type,
+            "owner_id": parsed.owner_id,
+            "occupier_id": parsed.capturer_id,
+            "keep_level": row[5],
+            "wall_level": row[6],
+            "gate_level": row[7],
+            "tower_level": row[8],
+            "moat_level": row[9],
+        }
+        fields.update({key: entry[key] for key in ("OGT", "OGC", "AOT", "CAT", "TA") if key in entry})
+        return cls.model_validate(fields)
 
 
 class GetCastlesResponse(BaseResponse):
