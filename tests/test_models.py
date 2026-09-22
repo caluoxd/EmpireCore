@@ -674,8 +674,10 @@ class TestPositionalArrayParsers:
             MapItemType.CASTLE,
             MapItemType.CAPITAL,
             MapItemType.OUTPOST,
+            MapItemType.VILLAGE,
             MapItemType.KINGDOM_CASTLE,
             MapItemType.METRO,
+            MapItemType.KINGS_TOWER,
             MapItemType.MONUMENT,
             MapItemType.LABORATORY,
         ],
@@ -683,14 +685,35 @@ class TestPositionalArrayParsers:
     def test_map_area_item_owner_is_field_four_for_every_owned_type(self, item_type):
         item = MapAreaItem.from_list([item_type, 1, 2, 900, 4242])
         assert (item.location_id, item.owner_id, item.player_id) == (900, 4242, 4242)
+        assert item.has_owner_field
+
+    @pytest.mark.parametrize(
+        "item_type", [MapItemType.FACTION_VILLAGE, MapItemType.FACTION_TOWER, MapItemType.FACTION_CAPITAL]
+    )
+    def test_map_area_item_faction_landmark_owner_is_field_three(self, item_type):
+        item = MapAreaItem.from_list([item_type, 1, 2, 4242, [], -1, 3])
+        assert (item.owner_id, item.location_id) == (4242, -1)
+        assert item.has_owner_field
 
     def test_map_area_item_empty_castle_slot_has_no_owner(self):
         # A free plot comes as a four-field row: [1, x, y, -1].
         item = MapAreaItem.from_list([MapItemType.CASTLE, 632, 204, -1])
         assert (item.location_id, item.owner_id) == (-1, -1)
 
-    def test_map_area_item_camp_has_no_location_id(self):
-        assert MapAreaItem.from_list([MapItemType.DUNGEON, 1, 2, 300, 5, -1, 0]).location_id == -1
+    @pytest.mark.parametrize(
+        "row",
+        [
+            [MapItemType.DUNGEON, 1, 2, 300, 5, -1, 0],
+            [MapItemType.NOMAD_CAMP, 1, 2, -1, 297, -100, 0, 0, -1, 0, 0, 0],
+            [MapItemType.BOSS_DUNGEON, 1, 2, -1, 40, 0, 4242, 2],
+            [MapItemType.SAMURAI_CAMP, 1, 2, -1, 12, 0, 0, 0, -1, 0, 0, 0],
+            [MapItemType.DYNAMIC, 632, 201],
+        ],
+    )
+    def test_map_area_item_camp_rows_report_no_owner(self, row):
+        item = MapAreaItem.from_list(row)
+        assert (item.owner_id, item.location_id) == (-1, -1)
+        assert not item.has_owner_field
 
     def test_map_area_item_unknown_type_name_is_labeled(self):
         assert MapAreaItem.from_list([9999, 1, 2, 3]).type_name == "UNKNOWN_9999"
