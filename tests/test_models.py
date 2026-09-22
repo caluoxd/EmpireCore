@@ -422,7 +422,9 @@ class TestGoldenCastlePayloads:
 
     def test_dcl_castle_lookup_by_id(self):
         response = GetDetailedCastleResponse.model_validate(GOLDEN_DCL)
-        assert response.castle(16656989).units == {649: 18}
+        outpost = response.castle(16656989)
+        assert outpost is not None
+        assert outpost.units == {649: 18}
         assert response.castle(1) is None
 
 
