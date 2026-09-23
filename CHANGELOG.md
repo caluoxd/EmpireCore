@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v0.35.1 (2026-09-23)
+
+### Bug Fixes
+
+- **ranking**: Retain response and entry metadata
+  ([`d2338e9`](https://github.com/eschnitzler/EmpireCore/commit/d2338e91c3be787d3d09d406bb40acc2aac72dc4))
+
+### Documentation
+
+- Add contact details to the README
+  ([`58abfb8`](https://github.com/eschnitzler/EmpireCore/commit/58abfb88d292d83bf34aa0eb81884e21b8e6be1e))
+
+
 ## v0.35.0 (2026-09-22)
 
 ### Bug Fixes
