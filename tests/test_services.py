@@ -875,13 +875,13 @@ class TestCastleActions:
     def test_rename_sends_the_new_name(self):
         client = make_client()
 
-        assert client.castle.rename(12345, "My Fortress") is True
+        assert client.castle.rename(castle_id=12345, new_name="My Fortress", castle_type=1, kingdom_id=0, paid=0) is True
 
-        assert conn(client).request_payloads == [("arc", {"CID": 12345, "CN": "My Fortress"})]
+        assert conn(client).request_payloads == [("arc", {"CID": 12345, "N": "My Fortress", "AT": 1, "KID": 0, "P": 0})]
 
     def test_rejected_rename_is_false(self):
         client = make_client({"arc": xt_packet("arc", error_code=21)})
-        assert client.castle.rename(12345, "nope") is False
+        assert client.castle.rename(castle_id=12345, new_name="nope", castle_type=12, kingdom_id=3, paid=1) is False
 
     def test_send_support_builds_the_documented_payload(self):
         client = make_client()

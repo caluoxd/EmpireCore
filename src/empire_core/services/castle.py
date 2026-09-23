@@ -105,7 +105,7 @@ class CastleService(BaseService):
     # Castle Modification
     # =========================================================================
 
-    def rename(self, castle_id: int, new_name: str, timeout: float = 5.0) -> bool:
+    def rename(self, castle_id: int, new_name: str, castle_type: int, kingdom_id: int, paid: int, timeout: float = 5.0) -> bool:
         """
         Rename a castle.
 
@@ -113,7 +113,7 @@ class CastleService(BaseService):
             if client.castle.rename(12345, "My Fortress"):
                 print("Castle renamed!")
         """
-        return self.execute(RenameCastleRequest(CID=castle_id, CN=new_name), timeout=timeout)
+        return self.execute(RenameCastleRequest(CID=castle_id, N=new_name, AT=castle_type, KID=kingdom_id, P=paid), timeout=timeout)
 
     # =========================================================================
     # Resource Operations

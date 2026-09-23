@@ -429,13 +429,17 @@ class RenameCastleRequest(BaseRequest):
     Rename a castle.
 
     Command: arc
-    Payload: {"CID": castle_id, "CN": "new_name"}
+    Payload: {"CID": castle_id, "P": paid, "KID": kingdom_id, "AT": castle_type, "N": "new_name"}
     """
 
     command = "arc"
 
     castle_id: int = Field(alias="CID")
-    castle_name: str = Field(alias="CN")
+    castle_name: str = Field(alias="N")
+    castle_type: int = Field(alias="AT")
+    kingdom_id: int = Field(alias="KID", default=0)
+    paid: int = Field(alias="P", default=1)
+
 
 
 class RenameCastleResponse(BaseResponse):
@@ -443,9 +447,14 @@ class RenameCastleResponse(BaseResponse):
     Response to castle rename.
 
     Command: arc
+    Payload: {"P": paid, "CID": castle_id, "N": "new_name", "KID": kingdom_id}%
     """
 
     command = "arc"
+    castle_id: int = Field(alias="CID")
+    castle_name: str = Field(alias="N", default="")
+    kingdom_id: int = Field(alias="KID", default=0)
+    paid: int = Field(alias="P", default=1)
 
 
 # =============================================================================
