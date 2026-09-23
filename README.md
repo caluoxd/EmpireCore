@@ -19,7 +19,8 @@
   <a href="#game-state">Game State</a> •
   <a href="#map-scanning">Map Scanning</a> •
   <a href="#error-handling">Errors</a> •
-  <a href="#contributing">Contributing</a>
+  <a href="#contributing">Contributing</a> •
+  <a href="#contact">Contact</a>
 </p>
 
 ---
@@ -385,6 +386,13 @@ if not troop_data_available():
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for adding protocol commands and
 services, model conventions, and testing guidelines.
+
+## Contact
+
+- 📧 Email: [colossusdynamis@gmail.com](mailto:colossusdynamis@gmail.com)
+- 💬 Discord: `colossus1`
+
+Bugs and feature requests are best filed as [issues](https://github.com/eschnitzler/EmpireCore/issues).
 
 ## Architecture
 
