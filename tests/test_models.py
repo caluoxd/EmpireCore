@@ -18,7 +18,12 @@ from empire_core.protocol.models.base import (
     encode_chat_text,
     get_response_model,
 )
-from empire_core.protocol.models.castle import GetCastlesResponse, GetDetailedCastleResponse
+from empire_core.protocol.models.castle import (
+    GetCastlesResponse,
+    GetDetailedCastleResponse,
+    RenameCastleRequest,
+    RenameCastleResponse,
+)
 from empire_core.protocol.models.chat import AllianceChatLogResponse, AllianceChatMessageResponse
 from empire_core.protocol.models.defense import GetSupportDefenseResponse
 from empire_core.protocol.models.map import (
@@ -1035,3 +1040,12 @@ class TestDriftedPayloadsMustNotCrashAccessors:
             assert response.get_total_defenders() == 100
             assert response.get_units_by_position() == [{487: 100}]
         assert not [r for r in caplog.records if r.levelno == logging.WARNING]
+
+
+class TestRenameCastle:
+    def test_a_rename_sends_p_1(self):
+        request = RenameCastleRequest(CID=1, N="Keep", AT=1, KID=2)
+        assert request.to_payload() == {"CID": 1, "N": "Keep", "AT": 1, "KID": 2, "P": 1}
+
+    def test_the_reply_reads_p(self):
+        assert RenameCastleResponse.model_validate({"CID": 1, "KID": 2, "P": 0}).is_rename == 0

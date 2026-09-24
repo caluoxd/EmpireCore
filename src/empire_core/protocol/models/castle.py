@@ -429,7 +429,10 @@ class RenameCastleRequest(BaseRequest):
     Rename a castle.
 
     Command: arc
-    Payload: {"CID": castle_id, "P": is_rename, "KID": kingdom_id, "AT": castle_type, "N": "new_name"}
+    Payload: {"CID": castle_id, "N": "new_name", "AT": castle_type, "KID": kingdom_id, "P": 1}
+    Client: C2SRenameCastleVO
+
+    ``P`` is 0 when naming a newly acquired castle and 1 for a normal rename.
     """
 
     command = "arc"
@@ -441,20 +444,20 @@ class RenameCastleRequest(BaseRequest):
     is_rename: int = Field(alias="P", default=1)
 
 
-
 class RenameCastleResponse(BaseResponse):
     """
     Response to castle rename.
 
     Command: arc
-    Payload: {"P": paid, "CID": castle_id, "N": "new_name", "KID": kingdom_id}
+    Payload: {"CID": castle_id, "KID": kingdom_id, "P": 0 or 1}
+    Client: ARCCommand.executeCommand
     """
 
     command = "arc"
+
     castle_id: int = Field(alias="CID")
-    castle_name: str = Field(alias="N", default="")
     kingdom_id: int = Field(alias="KID", default=0)
-    paid: int = Field(alias="P", default=1)
+    is_rename: int = Field(alias="P", default=1)
 
 
 # =============================================================================
