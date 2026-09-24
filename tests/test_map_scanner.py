@@ -291,7 +291,7 @@ class TestMalformedResponses:
     def test_invalid_map_object_is_logged(self, caplog):
         fake = _FakeClient(
             content_chunks=set(),
-            payloads={(1, 1): {"AI": [], "OI": [{"OID": 7, "X": "not-a-number"}]}},
+            payloads={(1, 1): {"AI": [], "OI": [{"OID": 7, "L": "not-a-number"}]}},
         )
         with caplog.at_level(logging.DEBUG, logger="empire_core.client.map_scanner"):
             result = _make_scanner(fake).scan_chunks(
@@ -359,6 +359,18 @@ class TestMalformedResponses:
         warnings = [r for r in caplog.records if r.levelno >= logging.WARNING]
         assert len(warnings) == 1
         assert "1/2" in warnings[0].getMessage(), warnings[0].getMessage()
+
+    def test_skipped_map_objects_counted_in_drift_warning(self, caplog):
+        fake = _FakeClient(
+            content_chunks=set(),
+            payloads={(1, 1): {"AI": [], "OI": [{"OID": 7, "L": "not-a-number"}, "junk"]}},
+        )
+        with caplog.at_level(logging.WARNING, logger="empire_core.client.map_scanner"):
+            _make_scanner(fake).scan_chunks(kingdom=Kingdom.GREEN, chunks=[(1, 1)], item_types=[], chunk_delay=0)
+
+        warnings = [r for r in caplog.records if r.levelno >= logging.WARNING]
+        assert len(warnings) == 1
+        assert "2/2" in warnings[0].getMessage()
 
     def test_drift_warning_truncates_the_sample_entry(self, caplog):
         fake = _FakeClient(

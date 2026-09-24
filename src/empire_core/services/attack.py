@@ -586,8 +586,7 @@ class AttackService(BaseService):
         """The level of whoever owns a tile, from the scan of that tile."""
         if area is None:
             return None
-        # The row's owner id is the owner record's PID; older callers passed
-        # the location id, which is its object id. Accept both, then settle
+        # The row's owner id is the owner record's OID; failing that, settle
         # for the only record a one-tile scan returned.
         owner = next(
             (o for o in area.owners if owner_id == o.owner_id and o.level),

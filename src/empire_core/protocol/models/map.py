@@ -466,10 +466,12 @@ class MapObject(BasePayload):
     """
     An owner record from a map scan's OI list.
 
-    These describe the players who own objects in the scanned area. They carry
-    no coordinates - X and Y are 0 - so a record cannot be placed on the map
-    from a scan alone: the AI rows in the same response were not observed to
-    reference these owner IDs.
+    These describe the players who own objects in the scanned area. An AI
+    row's player id matches a record's ``owner_id``; the player's own castles
+    and villages are listed in ``area_positions`` and ``village_positions`` as
+    ``[kingdom_id, object_id, x, y, area_type]``.
+
+    Client: WorldMapOwnerInfoVO.fillFromParamObject
     """
 
     owner_id: int | None = Field(alias="OID", default=None)
@@ -490,21 +492,22 @@ class MapObject(BasePayload):
     alliance_id: int | None = Field(alias="AID", default=None)
     alliance_rank: int = Field(alias="AR", default=0)
     alliance_name: str | None = Field(alias="AN", default=None)
-    alliance_emblem: dict | None = Field(alias="aee", default=None)  # consider adding AllianceEmblem class
+    alliance_emblem: dict | None = Field(alias="aee", default=None)
     remaining_protection_time: int = Field(alias="RPT", default=0)
     area_positions: list[list[int]] | None = Field(alias="AP", default_factory=list)
     village_positions: list[list[int]] | None = Field(alias="VP", default_factory=list)
-    is_searching_alliance: int = Field(alias="SA", default=0)
-    should_use_vip_flag: int = Field(alias="VF", default=0)
-    has_premium_flag: int = Field(alias="PF", default=0)
+    is_searching_alliance: bool = Field(alias="SA", default=False)
+    has_vip_flag: bool = Field(alias="VF", default=False)
+    has_premium_flag: bool = Field(alias="PF", default=False)
     remaining_relocation_time: int = Field(alias="RRD", default=0)
     storm_title_id: int = Field(alias="TI", default=-1)  # -1: no title, 50-53: ranks 1-4, 54: ranks 5-10
     remaining_noob_protection: int = Field(alias="RNP", default=0)
+    faction: dict | None = Field(alias="FN", default=None)
 
     @field_validator("area_positions", "village_positions", mode="before")
     @classmethod
     def _unwrap_nested_area_positions(cls, value: object) -> object:
-        """Accept the server's occasional extra wrapper around one AP row (Berimond)."""
+        """Accept the server's occasional extra wrapper around one row (seen on AP in Berimond)."""
         if not isinstance(value, list):
             return value
         return [
