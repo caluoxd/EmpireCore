@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.35.3 (2026-09-24)
+
+### Bug Fixes
+
+- **map**: Tidy owner records and cover them with a live-shaped test
+  ([`64e2095`](https://github.com/eschnitzler/EmpireCore/commit/64e20954de217d06af7ccce75368c006f6e10e8a))
+
+
 ## v0.35.2 (2026-09-24)
 
 ### Bug Fixes
