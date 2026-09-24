@@ -105,15 +105,35 @@ class CastleService(BaseService):
     # Castle Modification
     # =========================================================================
 
-    def rename(self, castle_id: int, new_name: str, timeout: float = 5.0) -> bool:
+    def rename(self, castle_id: int, new_name: str, *, is_initial_name: bool = False, timeout: float = 5.0) -> bool:
         """
-        Rename a castle.
+        Rename one of your castles.
+
+        Looks the castle up in the castle list for the type and kingdom the
+        server needs, so this costs one extra round trip. Pass
+        ``is_initial_name=True`` to name a newly acquired castle, such as a
+        monument or laboratory, instead of renaming one.
+
+        Raises:
+            ValueError: ``castle_id`` is not one of your castles.
 
         Example:
             if client.castle.rename(12345, "My Fortress"):
                 print("Castle renamed!")
         """
-        return self.execute(RenameCastleRequest(CID=castle_id, CN=new_name), timeout=timeout)
+        castle = next((c for c in self.get_all(timeout=timeout) if c.castle_id == castle_id), None)
+        if castle is None:
+            raise ValueError(f"castle {castle_id} is not one of your castles")
+        return self.execute(
+            RenameCastleRequest(
+                CID=castle_id,
+                N=new_name,
+                AT=castle.castle_type,
+                KID=castle.kingdom_id,
+                P=0 if is_initial_name else 1,
+            ),
+            timeout=timeout,
+        )
 
     # =========================================================================
     # Resource Operations

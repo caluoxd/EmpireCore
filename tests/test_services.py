@@ -872,16 +872,41 @@ class TestCastleActions:
 
         assert "jca" in caplog.text
 
-    def test_rename_sends_the_new_name(self):
-        client = make_client()
+    def test_rename_sends_the_castle_type_and_kingdom_from_the_castle_list(self):
+        client = make_client(
+            {
+                "gcl": xt_packet("gcl", GOLDEN_GCL),
+                "arc": xt_packet("arc", {"CID": 16654596, "KID": 0, "P": 1}),
+            }
+        )
 
-        assert client.castle.rename(12345, "My Fortress") is True
+        assert client.castle.rename(16654596, "My Fortress") is True
 
-        assert conn(client).request_payloads == [("arc", {"CID": 12345, "CN": "My Fortress"})]
+        assert conn(client).request_payloads[-1] == (
+            "arc",
+            {"CID": 16654596, "N": "My Fortress", "AT": 1, "KID": 0, "P": 1},
+        )
+
+    def test_naming_a_new_castle_sends_p_0(self):
+        client = make_client(
+            {
+                "gcl": xt_packet("gcl", GOLDEN_GCL),
+                "arc": xt_packet("arc", {"CID": 16654596, "KID": 0, "P": 0}),
+            }
+        )
+
+        assert client.castle.rename(16654596, "My Fortress", is_initial_name=True) is True
+
+        assert conn(client).request_payloads[-1][1]["P"] == 0
 
     def test_rejected_rename_is_false(self):
-        client = make_client({"arc": xt_packet("arc", error_code=21)})
-        assert client.castle.rename(12345, "nope") is False
+        client = make_client({"gcl": xt_packet("gcl", GOLDEN_GCL), "arc": xt_packet("arc", error_code=21)})
+        assert client.castle.rename(16654596, "nope") is False
+
+    def test_renaming_a_castle_you_do_not_own_raises(self):
+        client = make_client({"gcl": xt_packet("gcl", GOLDEN_GCL)})
+        with pytest.raises(ValueError, match="12345"):
+            client.castle.rename(12345, "nope")
 
     def test_send_support_builds_the_documented_payload(self):
         client = make_client()
