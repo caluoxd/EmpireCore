@@ -2,6 +2,53 @@
 
 <!-- version list -->
 
+## v0.36.0 (2026-09-24)
+
+### Bug Fixes
+
+- **state**: Arrive by time, route abr/asr/mcm/mfc, mrm is a removal
+  ([#161](https://github.com/eschnitzler/EmpireCore/pull/161),
+  [`8673d4c`](https://github.com/eschnitzler/EmpireCore/commit/8673d4cbd0d923082cb447244e82e0d2b7a08945))
+
+- **state**: Movement types and direction from the game client
+  ([#160](https://github.com/eschnitzler/EmpireCore/pull/160),
+  [`424a5ea`](https://github.com/eschnitzler/EmpireCore/commit/424a5eac351b748a3b03fb32788e05a2f339185c))
+
+- **state**: Number movement types the way the game client does
+  ([#160](https://github.com/eschnitzler/EmpireCore/pull/160),
+  [`424a5ea`](https://github.com/eschnitzler/EmpireCore/commit/424a5eac351b748a3b03fb32788e05a2f339185c))
+
+- **state**: Tell incoming from outgoing by owner, returns by D
+  ([#160](https://github.com/eschnitzler/EmpireCore/pull/160),
+  [`424a5ea`](https://github.com/eschnitzler/EmpireCore/commit/424a5eac351b748a3b03fb32788e05a2f339185c))
+
+- **state**: Time-based arrival, abr/asr/mcm/mfc, mrm as removal
+  ([#161](https://github.com/eschnitzler/EmpireCore/pull/161),
+  [`8673d4c`](https://github.com/eschnitzler/EmpireCore/commit/8673d4cbd0d923082cb447244e82e0d2b7a08945))
+
+### Documentation
+
+- **state**: A return home arrives as a new TRAVEL movement
+  ([#160](https://github.com/eschnitzler/EmpireCore/pull/160),
+  [`424a5ea`](https://github.com/eschnitzler/EmpireCore/commit/424a5eac351b748a3b03fb32788e05a2f339185c))
+
+- **state**: Say which movements alert and that returns arrive too
+  ([#161](https://github.com/eschnitzler/EmpireCore/pull/161),
+  [`8673d4c`](https://github.com/eschnitzler/EmpireCore/commit/8673d4cbd0d923082cb447244e82e0d2b7a08945))
+
+### Refactoring
+
+- **state**: Snake_case Movement fields aliased to their wire keys
+  ([#161](https://github.com/eschnitzler/EmpireCore/pull/161),
+  [`8673d4c`](https://github.com/eschnitzler/EmpireCore/commit/8673d4cbd0d923082cb447244e82e0d2b7a08945))
+
+### Breaking Changes
+
+- **state**: Movement no longer has the MID, T, PT, TT, D, TID, KID, SID, OID and HBW attributes.
+  Use movement_id, movement_type, progress_time, total_time, direction, target_id, kingdom_id,
+  source_id, owner_id and horse_booster_id, which keep their names and meanings.
+
+
 ## v0.35.3 (2026-09-24)
 
 ### Bug Fixes
