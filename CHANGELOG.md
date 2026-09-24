@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.35.2 (2026-09-24)
+
+### Bug Fixes
+
+- **castle**: Look up a castle's type and kingdom when renaming it
+  ([`04fd1f3`](https://github.com/eschnitzler/EmpireCore/commit/04fd1f330615d2ff562aafdd24d5928f247af45b))
+
+
 ## v0.35.1 (2026-09-23)
 
 ### Bug Fixes
