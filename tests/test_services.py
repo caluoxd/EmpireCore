@@ -873,7 +873,7 @@ class TestCastleActions:
         assert "jca" in caplog.text
 
     def test_rename_sends_the_new_name(self):
-        client = make_client()
+        client = make_client({"arc": xt_packet("arc", {"CID": 12345, "KID": 0, "P": 1})})  
 
         assert client.castle.rename(castle_id=12345, new_name="My Fortress", castle_type=1, kingdom_id=0, paid=0) is True
 
