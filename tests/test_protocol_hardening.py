@@ -264,35 +264,23 @@ class TestRuinFlag:
     """A ruin is an owner-record flag, not a map item type."""
 
     # Captured from a live green-kingdom scan.
-    _RUIN = {
-        "X": 0,
-        "Y": 0,
-        "OT": 0,
-        "OID": 2612805,
-        "PID": None,
-        "PN": None,
-        "AID": 187375,
-        "AN": "",
-        "L": 70,
-        "N": "HardCoreHenri",
-        "R": 1,
-    }
-    _LIVE = {"X": 0, "Y": 0, "OT": 0, "OID": 17447818, "L": 70, "N": "Colossus", "R": 0}
+    _RUIN = {"OID": 2612805, "L": 70, "N": "HardCoreHenri", "R": 1}
+    _LIVE = {"OID": 17447818, "L": 70, "N": "Colossus", "R": 0}
 
     def test_ruin_owner_is_flagged(self):
         response = GetMapAreaResponse.model_validate({"KID": 0, "AI": [], "OI": [self._RUIN, self._LIVE]})
 
         ruins = response.get_ruins()
 
-        assert [o.object_id for o in ruins] == [2612805]
-        assert ruins[0].name == "HardCoreHenri"
+        assert [o.owner_id for o in ruins] == [2612805]
+        assert ruins[0].owner_name == "HardCoreHenri"
 
     def test_missing_flag_is_not_a_ruin(self):
         # Most owner records omit R entirely.
         response = GetMapAreaResponse.model_validate({"KID": 0, "AI": [], "OI": [{"OID": 5, "N": "x"}]})
 
         assert response.get_ruins() == []
-        assert response.objects[0].is_ruin is False
+        assert response.owners[0].is_ruin is False
 
 
 class TestFrameDebatching:

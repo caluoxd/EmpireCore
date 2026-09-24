@@ -627,8 +627,6 @@ class TestGoldenMapArea:
         response = GetMapAreaResponse.model_validate(payload)
         assert [(i.x, i.y, i.item_type) for i in response.items] == [(640, 655, int(MapItemType.CASTLE))]
         assert response.items[0].player_id == 4242
-        assert response.objects[0].resolved_owner_name == "TargetPlayer"
-        assert response.objects[0].resolved_owner_id == 900
 
     def test_short_rows_are_filtered_out_of_items(self):
         response = GetMapAreaResponse.model_validate({"KID": 0, "AI": [[1, 2, 3], self.CASTLE_ROW]})

@@ -590,11 +590,11 @@ class AttackService(BaseService):
         # the location id, which is its object id. Accept both, then settle
         # for the only record a one-tile scan returned.
         owner = next(
-            (o for o in area.objects if owner_id in (o.object_id, o.owner_id) and o.level),
+            (o for o in area.owners if owner_id == o.owner_id and o.level),
             None,
         )
-        if owner is None and len(area.objects) == 1 and area.objects[0].level:
-            owner = area.objects[0]
+        if owner is None and len(area.owners) == 1 and area.owners[0].level:
+            owner = area.owners[0]
         if owner is None:
             logger.debug(f"No owner level came back for {target.x}:{target.y}")
             return None
