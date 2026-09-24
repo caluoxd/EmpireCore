@@ -159,7 +159,7 @@ class MapScanner:
                 sample = raw_obj if sample is None else sample
                 logger.debug(f"Chunk ({cx}, {cy}): skipping invalid map object {raw_obj!r}: {e}")
                 continue
-            oid = obj.resolved_owner_id
+            oid = obj.owner_id
             if oid:
                 collected_objects[oid] = obj
 

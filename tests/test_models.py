@@ -622,13 +622,49 @@ class TestGoldenMapArea:
         payload = {
             "KID": 0,
             "AI": [self.CASTLE_ROW],
-            "OI": [{"OID": 900, "X": 640, "Y": 655, "PN": "TargetPlayer", "AN": "HOPE", "L": 70}],
+            "OI": [{"OID": 4242, "N": "TargetPlayer", "AN": "HOPE", "L": 70}],
         }
         response = GetMapAreaResponse.model_validate(payload)
         assert [(i.x, i.y, i.item_type) for i in response.items] == [(640, 655, int(MapItemType.CASTLE))]
         assert response.items[0].player_id == 4242
-        assert response.objects[0].resolved_owner_name == "TargetPlayer"
-        assert response.objects[0].resolved_owner_id == 900
+        assert response.owners[0].owner_id == 4242
+        assert response.owners[0].owner_name == "TargetPlayer"
+
+    # Shape of a live green-kingdom owner record, anonymised.
+    OWNER = {
+        "OID": 1385991,
+        "N": "Player",
+        "L": 70,
+        "LL": 950,
+        "H": 1649,
+        "MP": 44562022,
+        "CF": 6469992,
+        "HF": 132766143,
+        "TI": -1,
+        "SA": 0,
+        "PF": 1,
+        "VF": 0,
+        "AID": 3318,
+        "AR": 6,
+        "AN": "Alliance",
+        "AP": [[0, 1591282, 598, 201, 1], [0, 16512168, 600, 205, 4]],
+        "VP": [],
+        "FN": {"FID": 1, "TID": 113},
+    }
+
+    def test_owner_record_parses(self):
+        owner = GetMapAreaResponse.model_validate({"KID": 0, "AI": [], "OI": [self.OWNER]}).owners[0]
+        assert (owner.owner_id, owner.level, owner.legendary_level) == (1385991, 70, 950)
+        assert (owner.glory_points, owner.highest_glory_points, owner.storm_title_id) == (6469992, 132766143, -1)
+        assert owner.has_premium_flag is True and owner.is_searching_alliance is False
+        assert owner.area_positions == [[0, 1591282, 598, 201, 1], [0, 16512168, 600, 205, 4]]
+        assert owner.faction == {"FID": 1, "TID": 113}
+
+    def test_position_lists_lose_an_extra_wrapper(self):
+        record = {**self.OWNER, "AP": [[[10, 5, 1, 2, 1]]], "VP": [[[0, 6, 3, 4, 2]]]}
+        owner = GetMapAreaResponse.model_validate({"KID": 0, "AI": [], "OI": [record]}).owners[0]
+        assert owner.area_positions == [[10, 5, 1, 2, 1]]
+        assert owner.village_positions == [[0, 6, 3, 4, 2]]
 
     def test_short_rows_are_filtered_out_of_items(self):
         response = GetMapAreaResponse.model_validate({"KID": 0, "AI": [[1, 2, 3], self.CASTLE_ROW]})

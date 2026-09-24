@@ -14,8 +14,9 @@ import logging
 import warnings
 from enum import IntEnum
 
-from pydantic import ConfigDict, Field, ValidationError
+from pydantic import ConfigDict, Field, ValidationError, field_validator
 
+from .alliance import MemberEmblem
 from .base import BasePayload, BaseRequest, BaseResponse, PlayerInfo, Position
 
 logger = logging.getLogger(__name__)
@@ -465,40 +466,54 @@ class MapObject(BasePayload):
     """
     An owner record from a map scan's OI list.
 
-    These describe the players who own objects in the scanned area. They carry
-    no coordinates - X and Y are 0 - so a record cannot be placed on the map
-    from a scan alone: the AI rows in the same response were not observed to
-    reference these owner IDs.
+    These describe the players who own objects in the scanned area. An AI
+    row's player id matches a record's ``owner_id``; the player's own castles
+    and villages are listed in ``area_positions`` and ``village_positions`` as
+    ``[kingdom_id, object_id, x, y, area_type]``.
+
+    Client: WorldMapOwnerInfoVO.fillFromParamObject
     """
 
-    x: int = Field(alias="X", default=0)
-    y: int = Field(alias="Y", default=0)
-    object_type: int = Field(alias="OT", default=0)
-    object_id: int = Field(alias="OID", default=0)
-    owner_id: int | None = Field(alias="PID", default=None)
-    owner_name: str | None = Field(alias="PN", default=None)
-    alliance_id: int | None = Field(alias="AID", default=None)
-    alliance_name: str | None = Field(alias="AN", default=None)
+    owner_id: int | None = Field(alias="OID", default=None)
+    is_dummy: bool = Field(alias="DUM", default=False)
+    owner_name: str | None = Field(alias="N", default=None)
+    emblem: MemberEmblem | None = Field(alias="E", default=None)
     level: int = Field(alias="L", default=0)
-    name: str | None = Field(alias="N", default=None)
+    legendary_level: int = Field(alias="LL", default=0)
+    honor: int = Field(alias="H", default=0)
+    achievement_points: int = Field(alias="AVP", default=0)
+    glory_points: int = Field(alias="CF", default=0)
+    highest_glory_points: int = Field(alias="HF", default=0)
+    prefix_title: int = Field(alias="PRE", default=0)
+    suffix_title: int = Field(alias="SUF", default=0)
+    current_top_x: int = Field(alias="TOPX", default=0)
+    might_points: int = Field(alias="MP", default=0)
     is_ruin: bool = Field(alias="R", default=False)
+    alliance_id: int | None = Field(alias="AID", default=None)
+    alliance_rank: int = Field(alias="AR", default=0)
+    alliance_name: str | None = Field(alias="AN", default=None)
+    alliance_emblem: dict | None = Field(alias="aee", default=None)
+    remaining_protection_time: int = Field(alias="RPT", default=0)
+    area_positions: list[list[int]] | None = Field(alias="AP", default_factory=list)
+    village_positions: list[list[int]] | None = Field(alias="VP", default_factory=list)
+    is_searching_alliance: bool = Field(alias="SA", default=False)
+    has_vip_flag: bool = Field(alias="VF", default=False)
+    has_premium_flag: bool = Field(alias="PF", default=False)
+    remaining_relocation_time: int = Field(alias="RRD", default=0)
+    storm_title_id: int = Field(alias="TI", default=-1)  # -1: no title, 50-53: ranks 1-4, 54: ranks 5-10
+    remaining_noob_protection: int = Field(alias="RNP", default=0)
+    faction: dict | None = Field(alias="FN", default=None)
 
-    @property
-    def resolved_owner_id(self) -> int:
-        if self.owner_id is not None:
-            return self.owner_id
-        return self.object_id
-
-    @property
-    def resolved_owner_name(self) -> str:
-        if self.owner_name:
-            return self.owner_name
-        return self.name or ""
-
-    @property
-    def position(self) -> Position:
-        """Get object position."""
-        return Position(X=self.x, Y=self.y)
+    @field_validator("area_positions", "village_positions", mode="before")
+    @classmethod
+    def _unwrap_nested_area_positions(cls, value: object) -> object:
+        """Accept the server's occasional extra wrapper around one row (seen on AP in Berimond)."""
+        if not isinstance(value, list):
+            return value
+        return [
+            entry[0] if isinstance(entry, list) and len(entry) == 1 and isinstance(entry[0], list) else entry
+            for entry in value
+        ]
 
 
 class GetMapAreaResponse(BaseResponse):
@@ -518,7 +533,7 @@ class GetMapAreaResponse(BaseResponse):
 
     kingdom: Kingdom = Field(alias="KID", default=Kingdom.GREEN)
     raw_items: list = Field(alias="AI", default_factory=list)
-    objects: list[MapObject] = Field(alias="OI", default_factory=list)
+    owners: list[MapObject] = Field(alias="OI", default_factory=list)
 
     def get_ruins(self) -> list[MapObject]:
         """
@@ -526,7 +541,7 @@ class GetMapAreaResponse(BaseResponse):
 
         These have no coordinates; see :class:`MapObject`.
         """
-        return [obj for obj in self.objects if obj.is_ruin]
+        return [owner for owner in self.owners if owner.is_ruin]
 
     @property
     def items(self) -> list[MapAreaItem]:
