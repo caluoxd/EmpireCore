@@ -14,9 +14,9 @@ import logging
 import warnings
 from enum import IntEnum
 
-from empire_core.protocol.models.alliance import MemberEmblem
 from pydantic import ConfigDict, Field, ValidationError, field_validator
 
+from .alliance import MemberEmblem
 from .base import BasePayload, BaseRequest, BaseResponse, PlayerInfo, Position
 
 logger = logging.getLogger(__name__)
@@ -480,8 +480,8 @@ class MapObject(BasePayload):
     legendary_level: int = Field(alias="LL", default=0)
     honor: int = Field(alias="H", default=0)
     achievement_points: int = Field(alias="AVP", default=0)
-    current_fame: int = Field(alias="CF", default=0)
-    highest_fame: int = Field(alias="HF", default=0)
+    glory_points: int = Field(alias="CF", default=0)
+    highest_glory_points: int = Field(alias="HF", default=0)
     prefix_title: int = Field(alias="PRE", default=0)
     suffix_title: int = Field(alias="SUF", default=0)
     current_top_x: int = Field(alias="TOPX", default=0)
@@ -490,7 +490,7 @@ class MapObject(BasePayload):
     alliance_id: int | None = Field(alias="AID", default=None)
     alliance_rank: int = Field(alias="AR", default=0)
     alliance_name: str | None = Field(alias="AN", default=None)
-    alliance_emblem: dict | None = Field(alias="aee", default=None)        # consider adding AllianceEmblem class 
+    alliance_emblem: dict | None = Field(alias="aee", default=None)  # consider adding AllianceEmblem class
     remaining_protection_time: int = Field(alias="RPT", default=0)
     area_positions: list[list[int]] | None = Field(alias="AP", default_factory=list)
     village_positions: list[list[int]] | None = Field(alias="VP", default_factory=list)
@@ -498,17 +498,17 @@ class MapObject(BasePayload):
     should_use_vip_flag: int = Field(alias="VF", default=0)
     has_premium_flag: int = Field(alias="PF", default=0)
     remaining_relocation_time: int = Field(alias="RRD", default=0)
-    title_info: int = Field(alias="TI", default=-1)             # only ever found on player with most fame: 51
+    storm_title_id: int = Field(alias="TI", default=-1)  # -1: no title, 50-53: ranks 1-4, 54: ranks 5-10
     remaining_noob_protection: int = Field(alias="RNP", default=0)
 
-    @field_validator("area_positions", mode="before")
+    @field_validator("area_positions", "village_positions", mode="before")
     @classmethod
     def _unwrap_nested_area_positions(cls, value: object) -> object:
         """Accept the server's occasional extra wrapper around one AP row (Berimond)."""
         if not isinstance(value, list):
             return value
         return [
-            entry[0] if len(entry) == 1 and isinstance(entry[0], list) else entry
+            entry[0] if isinstance(entry, list) and len(entry) == 1 and isinstance(entry[0], list) else entry
             for entry in value
         ]
 
