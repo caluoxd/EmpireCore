@@ -177,13 +177,12 @@ class CastleService(BaseService):
         target_x: int,
         target_y: int,
         units: list[list[int]],
-        kingdom_id: int = 0,
+        commander_id: int,
         wait_time: int = 12,
-        boost_with_coins: bool = True,
+        use_premium_commander: bool = False,
         horses_type: int = -1,
-        feathers: int = 1,
+        feathers: bool = False,
         slowdown: int = 0,
-        commander_id: int = -14,
         timeout: float = 5.0,
     ) -> bool:
         """
@@ -194,26 +193,29 @@ class CastleService(BaseService):
             target_x: Target X coordinate
             target_y: Target Y coordinate
             units: List of [unit_id, count] pairs
-            kingdom_id: Target kingdom ID (0=Green, 2=Ice, 1=Sand, 3=Fire, default: 0)
+            commander_id: Commander to lead the support, from client.commanders.
+                There is no default: ``0`` is a real commander (the free starting
+                one), and the client never sends a support without a commander
+                (with none picked it leads with the premium one, ``-14``)
             wait_time: Station duration in hours (0-12, default: 12)
-            boost_with_coins: Use coins to speed up travel (default: True)
-            horses_type: Type of horses for speed bonus (-1 = none, default: -1)
-            feathers: Use feathers for speed boost (1 = use, 0 = don't, default: 1)
+            use_premium_commander: Lead with the premium commander (``commander_id``
+                -14). It uses one of your premium commanders, or costs rubies when
+                none are left; the client asks first, this does not
+            horses_type: Type of horses for speed bonus (-1 = none, default: -1);
+                sent as -1 whenever feathers are used, as the client does
+            feathers: Pay for the movement with feathers
             slowdown: Movement slowdown modifier (0 = none, default: 0)
-            commander_id: Commander ID (-14 = the game's default premium
-                commander entry, default: -14)
             timeout: Timeout in seconds
         """
         request = SendSupportRequest(
             SID=source_castle_id,
             TX=target_x,
             TY=target_y,
-            KID=kingdom_id,
             A=units,
             WT=wait_time,
-            BPC=1 if boost_with_coins else 0,
-            HBW=horses_type,
-            PTT=feathers,
+            BPC=1 if use_premium_commander else 0,
+            HBW=-1 if feathers else horses_type,
+            PTT=1 if feathers else 0,
             SD=slowdown,
             LID=commander_id,
         )
