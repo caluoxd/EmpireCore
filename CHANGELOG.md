@@ -2,6 +2,72 @@
 
 <!-- version list -->
 
+## v0.37.0 (2026-09-25)
+
+### Bug Fixes
+
+- **protocol**: Model gam as wrappers around a movement record
+  ([#177](https://github.com/eschnitzler/EmpireCore/pull/177),
+  [`14deeb9`](https://github.com/eschnitzler/EmpireCore/commit/14deeb9d3c7ab74d0e46e44a81bcfa469163cd4e))
+
+- **protocol**: Type every gam block from the client's parsers
+  ([#177](https://github.com/eschnitzler/EmpireCore/pull/177),
+  [`14deeb9`](https://github.com/eschnitzler/EmpireCore/commit/14deeb9d3c7ab74d0e46e44a81bcfa469163cd4e))
+
+- **state**: Fill castles from the whole dcl entry, with the client's names
+  ([#179](https://github.com/eschnitzler/EmpireCore/pull/179),
+  [`65ae161`](https://github.com/eschnitzler/EmpireCore/commit/65ae1618388d63a7815ed2dec3e42272bf50eab1))
+
+- **state**: Read the alliance search flag and fame from gal
+  ([#178](https://github.com/eschnitzler/EmpireCore/pull/178),
+  [`8fd8861`](https://github.com/eschnitzler/EmpireCore/commit/8fd886172ba16ad3223b1566666da236fc10b85e))
+
+### Code Style
+
+- **protocol**: Drop comments that restate the field descriptions
+  ([#177](https://github.com/eschnitzler/EmpireCore/pull/177),
+  [`14deeb9`](https://github.com/eschnitzler/EmpireCore/commit/14deeb9d3c7ab74d0e46e44a81bcfa469163cd4e))
+
+- **state**: Drop a comment that restates the validator
+  ([#178](https://github.com/eschnitzler/EmpireCore/pull/178),
+  [`8fd8861`](https://github.com/eschnitzler/EmpireCore/commit/8fd886172ba16ad3223b1566666da236fc10b85e))
+
+- **state**: Shorten a fixture comment ([#179](https://github.com/eschnitzler/EmpireCore/pull/179),
+  [`65ae161`](https://github.com/eschnitzler/EmpireCore/commit/65ae1618388d63a7815ed2dec3e42272bf50eab1))
+
+### Refactoring
+
+- Point docs, comments and time patches at the modules that moved
+  ([#181](https://github.com/eschnitzler/EmpireCore/pull/181),
+  [`f4a2f53`](https://github.com/eschnitzler/EmpireCore/commit/f4a2f5385fb2f4f994dd40ef72b0db55a97fd43e))
+
+- Split GameState and the gam models by area
+  ([#181](https://github.com/eschnitzler/EmpireCore/pull/181),
+  [`f4a2f53`](https://github.com/eschnitzler/EmpireCore/commit/f4a2f5385fb2f4f994dd40ef72b0db55a97fd43e))
+
+- **protocol**: Call the UM lord a commander
+  ([#177](https://github.com/eschnitzler/EmpireCore/pull/177),
+  [`14deeb9`](https://github.com/eschnitzler/EmpireCore/commit/14deeb9d3c7ab74d0e46e44a81bcfa469163cd4e))
+
+- **protocol**: Move the gam models out of map.py
+  ([#181](https://github.com/eschnitzler/EmpireCore/pull/181),
+  [`f4a2f53`](https://github.com/eschnitzler/EmpireCore/commit/f4a2f5385fb2f4f994dd40ef72b0db55a97fd43e))
+
+- **state**: Split GameState into per-area mixins
+  ([#181](https://github.com/eschnitzler/EmpireCore/pull/181),
+  [`f4a2f53`](https://github.com/eschnitzler/EmpireCore/commit/f4a2f5385fb2f4f994dd40ef72b0db55a97fd43e))
+
+### Testing
+
+- Split the state and gam model tests by area
+  ([#181](https://github.com/eschnitzler/EmpireCore/pull/181),
+  [`f4a2f53`](https://github.com/eschnitzler/EmpireCore/commit/f4a2f5385fb2f4f994dd40ef72b0db55a97fd43e))
+
+- **protocol**: Type the gam fixture for mypy
+  ([#177](https://github.com/eschnitzler/EmpireCore/pull/177),
+  [`14deeb9`](https://github.com/eschnitzler/EmpireCore/commit/14deeb9d3c7ab74d0e46e44a81bcfa469163cd4e))
+
+
 ## v0.36.0 (2026-09-24)
 
 ### Bug Fixes
