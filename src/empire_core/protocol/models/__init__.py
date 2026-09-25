@@ -9,7 +9,8 @@ Structure:
 - chat.py: Alliance chat commands (acm, acl)
 - alliance.py: Alliance commands (ahc, aha, ahr)
 - castle.py: Castle commands (gcl, dcl, jca, arc, etc.)
-- map.py: Map commands (gaa, gam, fnm, adi, etc.)
+- map.py: Map commands (gaa, fnm, adi, etc.)
+- movement.py: Army movements (gam, and the abr/asr/mcm pushes)
 - attack.py: Attack/spy commands (cra, csm, gas, etc.)
 - building.py: Building commands (ebu, eup, emo, sbd, etc.)
 - army.py: Army/soldier/hospital commands (bup, spl, gui, hru, etc.)
@@ -212,14 +213,23 @@ from .map import (
     FindNPCResponse,
     GetMapAreaRequest,
     GetMapAreaResponse,
-    GetMovementsRequest,
-    GetMovementsResponse,
     GetTargetInfoRequest,
     GetTargetInfoResponse,
     Kingdom,
     MapAreaItem,
     MapItemType,
     MapObject,
+    NPCLocation,
+    TargetInfo,
+)
+from .messages import (
+    BattleSpyDataRequest,
+    BattleSpyDataResponse,
+    SystemNotificationEvent,
+)
+from .movement import (
+    GetMovementsRequest,
+    GetMovementsResponse,
     MovementArea,
     MovementArmy,
     MovementMarket,
@@ -228,16 +238,9 @@ from .map import (
     MovementSpy,
     MovementUnitInfo,
     MovementWrapper,
-    NPCLocation,
     OwnerCastlePosition,
     OwnerCrest,
     OwnerFaction,
-    TargetInfo,
-)
-from .messages import (
-    BattleSpyDataRequest,
-    BattleSpyDataResponse,
-    SystemNotificationEvent,
 )
 from .player import (
     LOCATION_TYPES,
