@@ -29,8 +29,10 @@ TODO (lower priority):
 from .alliance import (
     AllianceBookmark,
     AllianceBuilding,
+    AllianceDiplomacyStatus,
     AllianceInfo,
     AllianceMember,
+    AllianceMemberInfo,
     AllianceSearchResult,
     AllianceStorage,
     AskHelpRequest,
@@ -44,8 +46,6 @@ from .alliance import (
     HelpMemberRequest,
     HelpMemberResponse,
     HelpRequestNotification,
-    MemberCastle,
-    MemberEmblem,
     SearchAllianceRequest,
     SearchAllianceResponse,
 )
@@ -75,14 +75,17 @@ from .army import (
     SendSupportResponse,
     SkipHealRequest,
     SkipHealResponse,
+    UnitInventory,
 )
 from .attack import (
     AttackInfoResponse,
     AttackPreset,
+    AttackTargetArea,
     AttackType,
     AttackWave,
     CreateAttackRequest,
     CreateAttackResponse,
+    CurrencyTotals,
     GetAttackInfoRequest,
     GetAttackInfoResponse,
     GetBossDungeonAttackInfoRequest,
@@ -173,6 +176,7 @@ from .building import (
     UpgradeWallResponse,
 )
 from .castle import (
+    LOCATION_TYPES,
     CastleInfo,
     CastleProductionArea,
     DetailedCastleInfo,
@@ -195,6 +199,7 @@ from .castle import (
     SelectCastleRequest,
     SelectCastleResponse,
     StorageCapacity,
+    get_location_type_name,
 )
 from .chat import (
     AllianceChatLogRequest,
@@ -207,11 +212,15 @@ from .chat import (
 from .commanders import (
     Castellan,
     Commander,
+    CommanderEffect,
+    CommanderRoster,
     Equipment,
+    EquipmentBonus,
     EquipmentSlot,
     EquipmentType,
     GetCommandersRequest,
     GetCommandersResponse,
+    RelicBonus,
     WearerType,
 )
 from .defense import (
@@ -230,6 +239,8 @@ from .defense import (
 )
 from .inventory import SCEItem
 from .map import (
+    AllianceCrest,
+    AllianceEmblem,
     FindNPCRequest,
     FindNPCResponse,
     GetMapAreaRequest,
@@ -243,6 +254,7 @@ from .map import (
 from .messages import (
     BattleSpyDataRequest,
     BattleSpyDataResponse,
+    MessageInfo,
     SystemNotificationEvent,
 )
 from .movement import (
@@ -261,21 +273,19 @@ from .movement import (
     OwnerFaction,
 )
 from .player import (
-    LOCATION_TYPES,
     GetPlayerInfoRequest,
     GetPlayerInfoResponse,
     LocationCapture,
     PlayerOwnerInfo,
     SearchPlayerRequest,
     SearchPlayerResponse,
-    SearchPlayerResult,
-    get_location_type_name,
 )
 from .ranking import (
     GetHighscoreRequest,
     GetHighscoreResponse,
     GetRankingListRequest,
     GetRankingListResponse,
+    LeaderboardScore,
     RankingCategory,
     RankingEntry,
     RankingType,
@@ -286,6 +296,7 @@ from .skills import (
     GetGeneralsResponse,
     GetSkillsRequest,
     GetSkillsResponse,
+    SelectedAbility,
 )
 
 __all__ = [
@@ -329,8 +340,8 @@ __all__ = [
     "AllianceInfo",
     "AllianceBuilding",
     "AllianceStorage",
-    "MemberEmblem",
-    "MemberCastle",
+    "AllianceMemberInfo",
+    "AllianceDiplomacyStatus",
     "AllianceBookmark",
     "GetAllianceBookmarksRequest",
     "GetAllianceBookmarksResponse",
@@ -376,6 +387,8 @@ __all__ = [
     "GetMapAreaRequest",
     "GetMapAreaResponse",
     "MapObject",
+    "AllianceCrest",
+    "AllianceEmblem",
     "GetMovementsRequest",
     "GetMovementsResponse",
     "MovementArea",
@@ -401,12 +414,12 @@ __all__ = [
     "get_location_type_name",
     "SearchPlayerRequest",
     "SearchPlayerResponse",
-    "SearchPlayerResult",
     # Attack
     "AttackType",
     "AttackWave",
     "GetAttackInfoRequest",
     "GetAttackInfoResponse",
+    "AttackTargetArea",
     "WaveFlank",
     "AttackInfoResponse",
     "GetBossDungeonAttackInfoRequest",
@@ -427,6 +440,7 @@ __all__ = [
     "GetVillageAttackInfoResponse",
     "CreateAttackRequest",
     "CreateAttackResponse",
+    "CurrencyTotals",
     "SendSpyRequest",
     "SendSpyResponse",
     "SpyScreenInfoRequest",
@@ -442,6 +456,7 @@ __all__ = [
     "SkipDungeonCooldownRequest",
     "SkipDungeonCooldownResponse",
     # Messages
+    "MessageInfo",
     "SystemNotificationEvent",
     "BattleSpyDataRequest",
     "BattleSpyDataResponse",
@@ -495,6 +510,7 @@ __all__ = [
     "CancelProductionResponse",
     "GetUnitsRequest",
     "GetUnitsResponse",
+    "UnitInventory",
     "DeleteUnitsRequest",
     "DeleteUnitsResponse",
     "HealUnitsRequest",
@@ -510,17 +526,22 @@ __all__ = [
     "SendSupportRequest",
     "SendSupportResponse",
     "General",
+    "SelectedAbility",
     "GetCommandersRequest",
     "GetGeneralsRequest",
     "GetGeneralsResponse",
     "GetSkillsRequest",
     "GetSkillsResponse",
     "GetCommandersResponse",
+    "CommanderRoster",
     "Castellan",
     "Commander",
+    "CommanderEffect",
     "Equipment",
+    "EquipmentBonus",
     "EquipmentSlot",
     "EquipmentType",
+    "RelicBonus",
     "WearerType",
     "SCEItem",
     # Ranking
@@ -531,4 +552,5 @@ __all__ = [
     "GetHighscoreResponse",
     "GetRankingListRequest",
     "GetRankingListResponse",
+    "LeaderboardScore",
 ]

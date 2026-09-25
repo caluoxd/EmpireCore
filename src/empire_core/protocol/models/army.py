@@ -214,6 +214,38 @@ WodAmounts = Annotated[dict[int, int], BeforeValidator(_wod_amounts)]
 """A wod/amount array read as ``{wod_id: amount}``, as the client's unit inventories do."""
 
 
+def _spy_positions(value: object) -> object:
+    """
+    One wod/amount array per position, each pair read through ``int()``.
+
+    Client: ``CastleSpyArmyInfoVO.parseArmyInfo`` (bundle line 30699) hands each
+    position to ``AUnitInventory.fillFromWodAmountArray`` (bundle line 42572),
+    which skips entries that are not arrays and reads ``int(i[0])``, ``int(i[1])``,
+    into a ``UnitInventoryList``, whose ``addUnit`` skips an amount of 0 or less
+    (bundle line 21826). A position that is not an array fills nothing, so it
+    reads as empty; it is kept, since the client reads positions by order.
+    """
+    if value is None:
+        return []
+    if not isinstance(value, list):
+        return value
+    positions = []
+    for position in value:
+        pairs = []
+        for pair in position if isinstance(position, list) else []:
+            if isinstance(pair, list):
+                amount = client_int(pair[1] if len(pair) > 1 else None)
+                if amount > 0:
+                    pairs.append([client_int(pair[0] if pair else None), amount])
+        positions.append(pairs)
+    return positions
+
+
+SpyPositions = Annotated[list[list[list[int]]], BeforeValidator(_spy_positions)]
+"""A spy report's ``S``: ``[wod_id, amount]`` pairs per position, in the order
+left, middle, right, keep, stronghold, support, then an optional reserve."""
+
+
 class UnitInventory(BasePayload):
     """
     A castle's unit inventories, the ``gui`` block.
@@ -517,6 +549,7 @@ class SendSupportResponse(BaseResponse):
 
 
 __all__ = [
+    "UnitInventory",
     # BUP - Produce Units
     "ProduceUnitsRequest",
     "ProduceUnitsResponse",

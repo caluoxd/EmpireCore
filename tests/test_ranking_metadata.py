@@ -62,6 +62,15 @@ def test_global_list_paging_and_server_metadata():
     assert (first.instance_id, first.score_id, first.alliance_name) == (12, 456, "Alliance")
     assert (second.instance_id, second.score_id, second.alliance_name) == (13, 457, "")
     assert first.entity_id == 0  # A score ID is not evidence of an owner ID.
+    top = response.scores[0]
+    assert (top.rank, top.score, top.player_name, top.alliance_name) == (3, 900, "Player", "Alliance")
+    assert (top.instance_id, top.score_id) == (12, 456)
+    assert response.scores[1].alliance_name == ""
+
+
+def test_llsp_rows_the_client_would_not_break_on():
+    response = GetRankingListResponse.model_validate({"L": [{"R": 1, "S": 12.5, "P": "p"}, None]})
+    assert [(s.rank, s.score) for s in response.scores] == [(1, 12.5), (-1, -1)]
 
 
 def test_empty_highscore_retains_zero_last_rank_and_search():

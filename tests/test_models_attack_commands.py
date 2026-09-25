@@ -123,8 +123,133 @@ class TestAttackRequestShapes:
             "LP", "FC", "PTT", "SD", "ICA", "CD", "A", "BKS", "AST", "RW", "ASCT",
         ]  # fmt: skip
 
+    def test_collector_boosters_are_currency_amount_pairs(self):
+        # CastleFightScreenVO.addCollectorBooster pushes [boosterKey, amount]
+        request = CreateAttackRequest(SX=1, SY=2, TX=3, TY=4, A=[AttackWave()], BKS=[[31, 2], [32, 0]])
+        assert request.to_payload()["BKS"] == [[31, 2], [32, 0]]
+
     def test_wave_keys_follow_the_client_order(self):
         # CastleAttackWaveVO.getWaveInfoObject builds {L, R, M}, each {T, U}
         wave = AttackWave().model_dump(by_alias=True)
         assert list(wave) == ["L", "R", "M"]
         assert list(wave["L"]) == ["T", "U"]
+
+
+class TestAttackInfoBlocks:
+    def test_gaa_gui_and_gli_are_typed(self):
+        from empire_core.protocol.models import GetAttackInfoResponse
+
+        info = GetAttackInfoResponse.model_validate(
+            {
+                "gaa": {"AI": [2, 620, 231, -1, 4, 30, 0], "OI": [{"OID": 7, "L": 12, "LL": 3}, "junk"]},
+                "gui": {"I": [["10", "4"], [11, 2], [11, 1]], "SHI": [[620, 5], [621, 0]]},
+                "gli": {"C": [{"ID": 3, "N": "c"}], "B": [{"ID": 1}]},
+            }
+        )
+
+        assert info.target_area.area is not None and info.target_area.area.victory_count == 4
+        assert [(o.owner_id, o.level, o.legendary_level) for o in info.owner_records()] == [(7, 12, 3)]
+        assert info.inventory() == {10: 4, 11: 3}
+        assert info.stronghold_inventory() == {620: 5}
+        assert [c.commander_id for c in info.commander_roster.commanders] == [3]
+        assert [c.commander_id for c in info.commander_roster.castellans] == [1]
+
+    def test_the_castellan_follows_the_client_abe_or_b(self):
+        from empire_core.protocol.models import GetAttackInfoResponse
+
+        spied = {"S": [[[10, 1]], [], [], [], [], []], "AS": 5}
+        castellan = {"ID": 4, "WID": 2}
+
+        def picked(**blocks: object) -> int | None:
+            chosen = GetAttackInfoResponse.model_validate({**spied, **blocks}).defending_castellan()
+            return chosen.commander_id if chosen else None
+
+        assert picked(abe={"ID": 9}, B=castellan) == 9
+        assert picked(B=castellan) == 4
+        assert picked(abe=None, B=castellan) == 4
+        # {} is truthy in JavaScript, so the client never falls back to B, and builds no castellan from it
+        assert picked(abe={}, B=castellan) is None
+        assert picked(abe={"N": "no id"}, B=castellan) is None
+
+    def test_spy_positions_are_read_through_int(self):
+        from empire_core.protocol.models import GetAttackInfoResponse
+
+        # fillFromWodAmountArray skips non-arrays and reads int(i[0]), int(i[1]);
+        # UnitInventoryList.addUnit skips an amount of 0
+        info = GetAttackInfoResponse.model_validate({"S": [[[487, "20"], "junk", [488, "x"]], "junk", [[10, 1]]]})
+
+        assert info.spy_data == [[[487, 20]], [], [[10, 1]]]
+        army = info.spy_army()
+        assert army is not None
+        assert [(s.wod_id, s.count) for s in army.left] == [(487, 20)]
+        assert [(s.wod_id, s.count) for s in army.right] == [(10, 1)]
+
+    def test_a_null_spy_block_is_no_report(self):
+        from empire_core.protocol.models import GetAttackInfoResponse
+
+        info = GetAttackInfoResponse.model_validate({"S": None, "AS": 30, "LS": [5]})
+
+        assert info.spy_army() is None
+        assert (info.spy_age_seconds, info.defender_legend_skill_ids) == (-1, [])
+
+    def test_attacker_effects_are_typed(self):
+        from empire_core.combat import Bonus
+        from empire_core.protocol.models import GetAttackInfoResponse
+
+        info = GetAttackInfoResponse.model_validate({"AE": [[66, [30.0], "CI"], "junk", [67]]})
+
+        assert [(e.effect_id, e.values, e.source) for e in info.attacker_effects] == [(66, [30.0], "CI"), (67, [], "")]
+        assert info.attacker_bonuses() == [Bonus(effect_id=66, value=30.0, raw_values=(30.0,))]
+
+
+class TestReviewedLeniency:
+    """Values the client converts or skips must cost at most their own entry."""
+
+    def test_odd_commander_values_are_read_like_the_client(self):
+        from empire_core.protocol.models import Commander, CommanderRoster
+
+        assert Commander.model_validate({"ID": 1, "W": "n/a", "N": 5}).wins == 0
+        assert Commander.model_validate({"DLID": -3}).commander_id == -3
+        roster = CommanderRoster.model_validate({"C": [{"N": "x"}, {"ID": 2}], "B": None})
+        assert [c.commander_id for c in roster.commanders] == [2]
+        assert CommanderRoster.model_validate(None).commanders == []
+
+    def test_a_bad_owner_record_or_row_costs_only_itself(self):
+        from empire_core.protocol.models import GetAttackInfoResponse
+
+        info = GetAttackInfoResponse.model_validate(
+            {"gaa": {"AI": [[1], 2, 3, 4], "OI": [{"OID": 5, "L": None}, {"OID": 6, "AP": "x"}]}}
+        )
+        assert info.target_area.area is None
+        assert [(o.owner_id, o.level) for o in info.owner_records()] == [(5, 0)]
+
+    def test_the_castellan_source_also_follows_field_names(self):
+        from empire_core.protocol.models import Commander, GetAttackInfoResponse
+
+        info = GetAttackInfoResponse.model_validate({"S": [[[1, 2]]], "spied_castellan": Commander(ID=7)})
+        again = GetAttackInfoResponse.model_validate(info.model_dump())
+        for response in (info, again):
+            castellan = response.defending_castellan()
+            assert castellan is not None and castellan.commander_id == 7
+
+    def test_cra_keeps_its_movement_id_and_leader_when_the_wrapper_breaks(self):
+        from empire_core.protocol.models import CreateAttackResponse
+
+        reply = CreateAttackResponse.model_validate(
+            {"AAM": {"M": {"MID": 9, "TA": [1, 2]}, "UM": {"L": {"ID": 3}}}, "gcu": {"C1": 10.5}}
+        )
+        assert reply.attack_movement is None
+        assert reply.movement_id == 9
+        assert reply.leader is not None and reply.leader.commander_id == 3
+        assert reply.currencies is not None and reply.currencies.gold == 10.5
+
+    def test_equipment_effects_and_messages_the_client_still_reads(self):
+        from empire_core.protocol.models import CommanderEffect, Equipment, SystemNotificationEvent
+
+        item = Equipment.model_validate([1, 2, 1, 3, "graphic", [[5, [10]]], 0, 0, 0, 1.5, -1, 0])
+        assert (item.graphic, item.duration_seconds, len(item.bonuses)) == ("graphic", 1.5, 1)
+        assert CommanderEffect.model_validate([5, [10], 7]).source == ""
+        event = SystemNotificationEvent.model_validate(
+            {"MSG": [[1, 2, "h", "s", None, 1.5, 0, 0, 0], {"not": "a row"}, [3, 4, "h", "s", 9, 0, 0, 0, 0]]}
+        )
+        assert [(m.message_id, m.sender_id) for m in event.messages] == [(1, 0), (3, 9)]

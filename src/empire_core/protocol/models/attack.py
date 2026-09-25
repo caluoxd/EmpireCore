@@ -19,11 +19,23 @@ import logging
 from enum import IntEnum
 from typing import TYPE_CHECKING, Any
 
-from pydantic import BaseModel, Field, ValidationError, field_serializer, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    Field,
+    PrivateAttr,
+    ValidationError,
+    ValidatorFunctionWrapHandler,
+    field_serializer,
+    field_validator,
+    model_validator,
+)
+from pydantic.functional_validators import ModelWrapValidatorHandler
 
+from .army import SpyPositions, UnitInventory
 from .base import BasePayload, BaseRequest, BaseResponse
-from .commanders import Commander
-from .map import MapAreaItem
+from .commanders import Commander, CommanderEffects, CommanderRoster
+from .map import MapAreaItem, MapObject
+from .movement import MovementOwner, MovementWrapper
 
 if TYPE_CHECKING:
     from empire_core.combat import Bonus
@@ -111,7 +123,7 @@ class CreateAttackRequest(BaseRequest):
         "ICA": collector_attack,
         "CD": 99,                            # hardcoded by the client
         "A": [wave, ...],                    # see AttackWave
-        "BKS": [collector_booster, ...],
+        "BKS": [[currency_id, amount], ...], # collector event boosters
         "AST": [support_tool_wod_id, ...],
         "RW": [[unit_id, count], ...],       # yard wave
         "ASCT": auto_skip_cooldown_type
@@ -120,7 +132,11 @@ class CreateAttackRequest(BaseRequest):
     Fields follow the client's key order: the constructor initialises SX
     through CD before it sets A, BKS, AST, RW and ASCT.
 
-    Client: ``C2SCreateArmyAttackMovementVO`` (bundle line 60851)
+    Client: ``C2SCreateArmyAttackMovementVO`` (bundle line 60851), filled by
+    ``CastleAttackData.sendAttack`` (bundle line 133852) with the fight screen's
+    ``collecterBooster``, built by ``CastleFightScreenVO.addCollectorBooster``
+    (bundle line 30584) from the booster dialogs' ``boosterKey``, a currency id
+    (bundle lines 55905, 100060, 100154, 100189, 100221).
     """
 
     command = "cra"
@@ -154,10 +170,31 @@ class CreateAttackRequest(BaseRequest):
     collector_attack: int = Field(alias="ICA", default=0)
     countdown: int = Field(alias="CD", default=99)
     waves: list[AttackWave] = Field(alias="A", default_factory=list)
-    collector_booster: list = Field(alias="BKS", default_factory=list)
+    collector_booster: list[list[int]] = Field(
+        alias="BKS",
+        default_factory=list,
+        description="Collector event boosters as [currency_id, amount], such as 31 (samurai medal booster)",
+    )
     support_tools: list[int] = Field(alias="AST", default_factory=list)
     yard_wave: list[list[int]] = Field(alias="RW", default_factory=list)
     auto_skip_cooldown: int = Field(alias="ASCT", default=0)
+
+
+class CurrencyTotals(BasePayload):
+    """
+    Gold and rubies after an action, the ``gcu`` block.
+
+    Client: ``CurrencyData.parseGCU`` (bundle line 141191), which reads
+    ``CollectableItemC1VO.SERVER_KEY`` "C1" (bundle line 7995) and
+    ``CollectableItemC2VO.SERVER_KEY`` "C2" (bundle line 4876).
+    """
+
+    gold: int | float | None = Field(
+        alias="C1", default=None, description="Gold (C1), assigned as sent; None when the block leaves it out"
+    )
+    rubies: int | float | None = Field(
+        alias="C2", default=None, description="Rubies (C2), assigned as sent; None when the block leaves it out"
+    )
 
 
 class CreateAttackResponse(BaseResponse):
@@ -185,20 +222,33 @@ class CreateAttackResponse(BaseResponse):
     ``send_attack`` raises that reply as ``AttackInProgressError``, with both
     values read off it.
 
+    ``CRACommand`` hands ``AAM`` to ``CastleArmyData.parseMapMovementArray``
+    as ``[i.AAM]``, the same read as a ``gam`` entry or an ``abr`` push, and
+    ``O`` to ``CastleOtherPlayerData.parseOwnerInfoArray``, which skips a
+    record without an ``OID``.
+
     Client: ``CRACommand.executeCommand`` (bundle line 125954),
-    ``CurrencyData.parseGCU`` (bundle line 141191) with ``CollectableItemC1VO.SERVER_KEY`` "C1" (7995)
-    and ``CollectableItemC2VO.SERVER_KEY`` "C2" (4876),
+    ``CastleArmyData.parseMapMovementArray`` (bundle line 133626),
+    ``MapmovementFactory.parseMapMovement`` (bundle line 133793),
+    ``CastleOtherPlayerData.parseOwnerInfo`` (bundle line 138996),
+    ``CurrencyData.parseGCU`` (bundle line 141191),
     ``CastlePostPostAttackFactionDialogProperties`` (bundle line 40173),
     ``CastlePostPostAttackFactionDialog.onClick`` (bundle line 40155).
     """
 
     command = "cra"
 
-    attack_movement: dict | None = Field(alias="AAM", default=None, description="The created movement wrapper")
-    currencies: dict = Field(
-        alias="gcu", default_factory=dict, description="Currency totals after the send, C1 and C2 as the gcu command"
+    attack_movement: MovementWrapper | None = Field(
+        alias="AAM", default=None, description="The created movement; None when missing or unreadable"
     )
-    owners: list = Field(alias="O", default_factory=list, description="Owner records for the movement's areas")
+    currencies: CurrencyTotals | None = Field(
+        alias="gcu", default=None, description="Gold and rubies after the send; None when the reply has no gcu"
+    )
+    owners: list[MovementOwner] = Field(
+        alias="O",
+        default_factory=list,
+        description="Owner records for the movement's areas; records without an OID or that do not parse are skipped",
+    )
     arrival_seconds: int | float | None = Field(
         alias="TS",
         default=None,
@@ -208,10 +258,49 @@ class CreateAttackResponse(BaseResponse):
         alias="AS", default=None, description="On ATTACK_IN_PROGRESS: the size of the attack already on its way"
     )
 
+    _raw_attack_movement: dict[str, Any] = PrivateAttr(default_factory=dict)
+
+    @model_validator(mode="wrap")
+    @classmethod
+    def _keep_the_raw_movement(
+        cls, data: object, handler: ModelWrapValidatorHandler["CreateAttackResponse"]
+    ) -> "CreateAttackResponse":
+        model = handler(data)
+        if isinstance(data, dict) and isinstance(data.get("AAM"), dict):
+            model._raw_attack_movement = data["AAM"]
+        return model
+
+    @field_validator("attack_movement", mode="wrap")
+    @classmethod
+    def _movement_or_none(cls, value: object, handler: ValidatorFunctionWrapHandler) -> MovementWrapper | None:
+        if not value:
+            return None
+        try:
+            return handler(value)
+        except ValidationError:
+            logger.warning("Could not parse the movement created by cra")
+            return None
+
+    @field_validator("owners", mode="before")
+    @classmethod
+    def _readable_owners(cls, value: object) -> list[MovementOwner]:
+        owners = []
+        for record in value if isinstance(value, list) else []:
+            if not isinstance(record, dict) or not record.get("OID"):
+                continue
+            try:
+                owners.append(MovementOwner.model_validate(record))
+            except ValidationError:
+                logger.warning("Could not parse an owner record sent with cra")
+        return owners
+
     @property
     def leader(self) -> Commander | None:
         """The commander leading the attack, as the server echoed it back."""
-        raw = ((self.attack_movement or {}).get("UM") or {}).get("L")
+        if self.attack_movement:
+            unit_info = self.attack_movement.unit_info
+            return unit_info.commander if unit_info else None
+        raw = (self._raw_attack_movement.get("UM") or {}).get("L")
         if not isinstance(raw, dict):
             return None
         try:
@@ -223,7 +312,9 @@ class CreateAttackResponse(BaseResponse):
     @property
     def movement_id(self) -> int | None:
         """The created movement's ID, or None when the server sent no movement."""
-        movement = (self.attack_movement or {}).get("M")
+        if self.attack_movement:
+            return self.attack_movement.movement.movement_id
+        movement = self._raw_attack_movement.get("M")
         if not isinstance(movement, dict):
             return None
         try:
@@ -257,24 +348,43 @@ class GetAttackInfoRequest(BaseRequest):
     kingdom_id: int = Field(alias="KID", default=0, description="Kingdom id of the target")
 
 
-def _wod_amounts(entries: Any) -> dict[int, int]:
+class AttackTargetArea(BasePayload):
     """
-    ``[[wod_id, amount], ...]`` as ``{wod_id: amount}``.
+    The target's map row and owner records, the ``gaa`` block of a pre-calculation reply.
 
-    Repeated ids add up and ids left at zero or less are dropped.
-
-    Client: ``AUnitInventory.fillFromWodAmountArray`` (bundle line 42572) into a
-    ``UnitInventoryDictionary``: ``addUnit`` clamps at 0 and ``changeUnitAmount``
-    adds (bundle lines 5533-5535), ``setUnit`` deletes a total of 0 or less
-    (bundle line 5538).
+    Client: ``CastleAttackInfoVO.fillFromParamObject`` (bundle line 30620) parses
+    ``AI`` with ``WorldmapObjectFactory.parseWorldMapArea``; ``ACICommand`` and
+    ``ABICommand`` pass ``OI`` to ``OtherPlayerData.parseOwnerInfoArray``
     """
-    if not isinstance(entries, list):
-        return {}
-    totals: dict[int, int] = {}
-    for entry in entries:
-        if isinstance(entry, list) and len(entry) >= 2:
-            totals[entry[0]] = totals.get(entry[0], 0) + max(0, entry[1])
-    return {wod_id: amount for wod_id, amount in totals.items() if amount > 0}
+
+    area: MapAreaItem | None = Field(alias="AI", default=None, description="The target's map row")
+    owners: list[MapObject] = Field(
+        alias="OI", default_factory=list, description="Owner records, as WorldMapOwnerInfoVO reads them"
+    )
+
+    @field_validator("area", mode="before")
+    @classmethod
+    def _parse_row(cls, value: object) -> object:
+        if not isinstance(value, list):
+            return None
+        try:
+            return MapAreaItem.from_list(value)
+        except (ValidationError, TypeError):
+            logger.warning("Could not read the target's map row from an attack pre-calculation")
+            return None
+
+    @field_validator("owners", mode="before")
+    @classmethod
+    def _readable_records(cls, value: object) -> list[MapObject]:
+        records = []
+        for record in value if isinstance(value, list) else []:
+            if not isinstance(record, dict):
+                continue
+            try:
+                records.append(MapObject.model_validate(record))
+            except ValidationError:
+                logger.warning("Skipped an owner record of an attack pre-calculation that could not be read")
+        return records
 
 
 class AttackInfoResponse(BaseResponse):
@@ -300,7 +410,8 @@ class AttackInfoResponse(BaseResponse):
     ``S`` is not empty, and otherwise treats the target as never spied.
 
     Client: ``CastleAttackInfoVO.fillFromParamObject`` (bundle lines 30620-30633),
-    ``CastleFightScreenVO.fillFromParamObject`` for ``AE`` (bundle line 30501),
+    ``CastleFightScreenVO.fillFromParamObject`` for ``AE`` (bundle line 30501), which hands it to
+    ``SimpleEffectSource.parseEffects`` (bundle line 38429),
     ``CastleSpyArmyInfoVO.parseArmyInfo`` (bundle line 30699).
     """
 
@@ -308,20 +419,27 @@ class AttackInfoResponse(BaseResponse):
     target_x: int = Field(alias="TX", default=0, description="Target map x")
     target_y: int = Field(alias="TY", default=0, description="Target map y")
     kingdom_id: int = Field(alias="KID", default=0, description="Kingdom id")
-    raw_attacker_effects: list = Field(
-        alias="AE", default_factory=list, description="Area effects on this attack, already scoped to the target"
+    attacker_effects: CommanderEffects = Field(
+        alias="AE",
+        default_factory=list,
+        description="Area effects on this attack, already scoped to the target; unreadable entries are skipped",
     )
-    raw_spy_army: list = Field(alias="S", default_factory=list, description="Spied defenders, one entry per position")
+    spy_data: SpyPositions = Field(
+        alias="S",
+        default_factory=list,
+        description="Spied defenders as [wod_id, amount] pairs per position: left, middle, right, keep, "
+        "stronghold, support, then an optional reserve",
+    )
     spy_age_seconds: int = Field(
         alias="AS",
         default=-1,
         description="Seconds since the target was spied; -1 when there is no spy report, which is also the value "
         "whenever S is empty",
     )
-    raw_defending_castellan: dict | None = Field(
+    spied_castellan: Commander | None = Field(
         alias="abe", default=None, description="The castellan defending the target, read in preference to B"
     )
-    raw_defending_castellan_fallback: dict | None = Field(
+    spied_castellan_fallback: Commander | None = Field(
         alias="B", default=None, description="The castellan defending the target when abe is missing"
     )
     defender_legend_skill_ids: list[int] = Field(
@@ -333,18 +451,50 @@ class AttackInfoResponse(BaseResponse):
     home_workshop_level: int = Field(
         alias="HAWL", default=0, description="Level of the attacking castle's workshop, which unlocks support tools"
     )
-    raw_map_area: dict = Field(
-        alias="gaa", default_factory=dict, description="AI: the target's map row, OI: owner records"
+    target_area: AttackTargetArea = Field(
+        alias="gaa", default_factory=lambda: AttackTargetArea(), description="The target's map row and owner records"
     )
-    raw_inventory: dict = Field(
-        alias="gui", default_factory=dict, description="I: the attacker's units and tools, SHI: its stronghold units"
+    unit_inventory: UnitInventory = Field(
+        alias="gui",
+        default_factory=UnitInventory,
+        description="The attacker's inventory; the client reads I (units and tools) and SHI (stronghold units)",
     )
-    raw_commanders: dict = Field(alias="gli", default_factory=dict, description="The attacker's commanders, as gli")
+    commander_roster: CommanderRoster = Field(
+        alias="gli",
+        default_factory=CommanderRoster,
+        description="The attacker's commanders and castellans, which the client parses with CastleLordData.parse_GLI",
+    )
+
+    _castellan_from_abe: bool = PrivateAttr(default=False)
+
+    @model_validator(mode="wrap")
+    @classmethod
+    def _note_castellan_source(
+        cls, data: object, handler: ModelWrapValidatorHandler["AttackInfoResponse"]
+    ) -> "AttackInfoResponse":
+        # Client: t.abe||t.B, so B is read only when abe is falsy in JavaScript
+        model = handler(data)
+        if isinstance(data, dict):
+            abe = data.get("abe", data.get("spied_castellan"))
+            model._castellan_from_abe = abe is not None and abe is not False and abe != 0 and abe != ""
+        return model
+
+    @field_validator("spied_castellan", "spied_castellan_fallback", mode="wrap")
+    @classmethod
+    def _castellan_or_none(cls, value: object, handler: ValidatorFunctionWrapHandler) -> Commander | None:
+        # The client builds no castellan from an empty entry
+        if not value:
+            return None
+        try:
+            return handler(value)
+        except ValidationError:
+            logger.warning("Could not parse the defending castellan from an attack pre-calculation")
+            return None
 
     @model_validator(mode="after")
     def _no_spy_report_without_an_army(self) -> "AttackInfoResponse":
         """Client: ``CastleSpyArmyInfoVO.parseArmyInfo`` sets the age and legend skills only when S is not empty."""
-        if not self.raw_spy_army:
+        if not self.spy_data:
             self.spy_age_seconds = -1
             self.defender_legend_skill_ids = []
         return self
@@ -357,9 +507,9 @@ class AttackInfoResponse(BaseResponse):
         effects the attack picks up on top of it, and they include the flank and
         front unit-amount bonuses that decide how many troops a wave holds.
         """
-        from empire_core.combat import parse_bonus_entries
+        from empire_core.combat import effect_bonuses
 
-        return parse_bonus_entries(self.raw_attacker_effects)
+        return effect_bonuses(self.attacker_effects)
 
     def spy_army(self) -> "SpyArmy | None":
         """
@@ -370,9 +520,9 @@ class AttackInfoResponse(BaseResponse):
         """
         from empire_core.services.spy_army import SpyArmy
 
-        if not self.raw_spy_army:
+        if not self.spy_data:
             return None
-        return SpyArmy.from_spy_data(self.raw_spy_army)
+        return SpyArmy.from_spy_data(self.spy_data)
 
     def defending_castellan(self) -> Commander | None:
         """
@@ -386,20 +536,9 @@ class AttackInfoResponse(BaseResponse):
         bundle line 30632), ``CastleSpyArmyInfoVO.parseArmyInfo`` (bundle line
         30699), ``LordFactory.createLord`` (bundle line 26399).
         """
-        if not self.raw_spy_army:
+        if not self.spy_data:
             return None
-        entry = (
-            self.raw_defending_castellan
-            if self.raw_defending_castellan is not None
-            else self.raw_defending_castellan_fallback
-        )
-        if not entry:
-            return None
-        try:
-            return Commander.model_validate(entry)
-        except ValidationError:
-            logger.warning("Could not parse the defending castellan from an attack pre-calculation")
-            return None
+        return self.spied_castellan if self._castellan_from_abe else self.spied_castellan_fallback
 
     def target_row(self) -> list:
         """
@@ -408,20 +547,18 @@ class AttackInfoResponse(BaseResponse):
         Client: ``WorldmapObjectFactory.parseWorldMapArea(t.gaa.AI)`` in
         ``CastleAttackInfoVO.fillFromParamObject`` (bundle line 30620).
         """
-        row = self.raw_map_area.get("AI")
-        return row if isinstance(row, list) else []
+        return list(self.target_area.area.raw_data) if self.target_area.area else []
 
-    def owner_records(self) -> list[dict]:
+    def owner_records(self) -> list[MapObject]:
         """
-        The raw owner records under ``gaa.OI``.
+        The owner records under ``gaa.OI``.
 
         Client: ``ACICommand.executeCommand`` (bundle line 122164) and
         ``ABICommand.executeCommand`` (bundle line 122128) pass them to
         ``OtherPlayerData.parseOwnerInfoArray``; the other pre-calculation
         commands do not read them.
         """
-        records = self.raw_map_area.get("OI")
-        return [record for record in records if isinstance(record, dict)] if isinstance(records, list) else []
+        return list(self.target_area.owners)
 
     def inventory(self) -> dict[int, int]:
         """
@@ -429,7 +566,7 @@ class AttackInfoResponse(BaseResponse):
 
         Client: ``CastleAttackInfoVO.fillFromParamObject`` (bundle line 30620).
         """
-        return _wod_amounts(self.raw_inventory.get("I"))
+        return dict(self.unit_inventory.units)
 
     def stronghold_inventory(self) -> dict[int, int]:
         """
@@ -438,7 +575,7 @@ class AttackInfoResponse(BaseResponse):
         Client: ``CastleAttackInfoVO.fillFromParamObject`` into a
         ``StrongholdUnitInventory`` (bundle line 30620).
         """
-        return _wod_amounts(self.raw_inventory.get("SHI"))
+        return dict(self.unit_inventory.stronghold)
 
 
 class GetAttackInfoResponse(AttackInfoResponse):
@@ -1125,6 +1262,7 @@ class SkipDungeonCooldownResponse(BaseResponse):
 
 
 __all__ = [
+    "AttackTargetArea",
     # Pre-calculation
     "AttackInfoResponse",
     "GetAttackInfoRequest",
@@ -1148,6 +1286,7 @@ __all__ = [
     # CRA - Create Attack
     "CreateAttackRequest",
     "CreateAttackResponse",
+    "CurrencyTotals",
     # CSM - Send Spy
     "SendSpyRequest",
     "SendSpyResponse",

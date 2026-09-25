@@ -8,9 +8,9 @@ from pydantic import Field, ValidationError
 from empire_core.protocol.models import parse_response
 from empire_core.protocol.models.alliance import (
     AllianceInfo,
+    AllianceMember,
     AllianceSearchResult,
     GetAllianceInfoResponse,
-    MemberCastle,
 )
 from empire_core.protocol.models.base import (
     BaseResponse,
@@ -21,6 +21,7 @@ from empire_core.protocol.models.base import (
 from empire_core.protocol.models.castle import (
     GetCastlesResponse,
     GetDetailedCastleResponse,
+    PlayerCastle,
     RenameCastleRequest,
     RenameCastleResponse,
 )
@@ -32,7 +33,7 @@ from empire_core.protocol.models.map import (
     MapAreaItem,
     MapItemType,
 )
-from empire_core.protocol.models.player import GetPlayerInfoResponse, PlayerCastle
+from empire_core.protocol.models.player import GetPlayerInfoResponse, SearchPlayerResponse
 from empire_core.protocol.models.ranking import GetHighscoreResponse, GetRankingListResponse, RankingEntry
 
 
@@ -219,8 +220,8 @@ def gdi_location_row(
 GOLDEN_AIN = {
     "A": {
         "AID": 190426,
-        "N": "Knights of HOPE",
-        "A": "HOPE",
+        "N": "Test Alliance",
+        "A": "Welcome to the alliance",
         "MP": 4213377,
         "ML": 50,
         "STO": {"W": 120000, "S": 98000, "O": 45000, "C1": 3000, "C2": 12, "I": 400, "G": 7},
@@ -337,7 +338,7 @@ GOLDEN_GDI = {
         "L": 70,
         "LL": 500,
         "AID": 190426,
-        "AN": "Knights of HOPE",
+        "AN": "Test Alliance",
         "RPT": 3600,
         "AP": [[0, 12345, 640, 655, 1]],
         "E": {"BGT": 1},
@@ -348,13 +349,13 @@ GOLDEN_GDI = {
             {
                 "KID": 0,
                 "AI": [
-                    {"AI": [gdi_location_row(1, 640, 655, 12345, 4242, "Main Castle", 0)]},
-                    {"AI": [gdi_location_row(4, 700, 700, 55555, 4242, "Outpost North", 0, capturer_outpost=9999)]},
+                    {"AI": gdi_location_row(1, 640, 655, 12345, 4242, "Main Castle", 0)},
+                    {"AI": gdi_location_row(4, 700, 700, 55555, 4242, "Outpost North", 0, capturer_outpost=9999)},
                 ],
             },
             {
                 "KID": 2,
-                "AI": [{"AI": [gdi_location_row(3, 300, 400, 77777, 4242, "Ice Capital", 2, capturer_capital=8888)]}],
+                "AI": [{"AI": gdi_location_row(3, 300, 400, 77777, 4242, "Ice Capital", 2, capturer_capital=8888)}],
             },
         ],
     },
@@ -383,10 +384,10 @@ class TestGoldenAllianceInfo:
         info = GetAllianceInfoResponse.model_validate(GOLDEN_AIN).alliance
         assert info is not None
         assert info.alliance_id == 190426
-        assert info.name == "Knights of HOPE"
-        assert info.abbreviation == "HOPE"
+        assert info.name == "Test Alliance"
+        assert info.announcement == "Welcome to the alliance"
         assert info.might == 4213377
-        assert info.member_limit == 50
+        assert info.external_member_level == 50
         assert info.member_count == 2
 
     def test_storage_and_buildings(self):
@@ -406,7 +407,7 @@ class TestGoldenAllianceInfo:
     def test_member_castles_parse_from_the_positional_ap_array(self):
         response = GetAllianceInfoResponse.model_validate(GOLDEN_AIN)
         leader = response.members[0]
-        assert [(c.kingdom, c.area_id, c.x, c.y, c.castle_type) for c in leader.castles] == [
+        assert [(c.kingdom_id, c.area_id, c.x, c.y, c.area_type) for c in leader.castle_positions] == [
             (0, 12345, 640, 655, 1),
             (2, 22222, 300, 400, 4),
         ]
@@ -423,7 +424,10 @@ class TestGoldenAllianceInfo:
     def test_typed_member_emblem(self):
         leader = GetAllianceInfoResponse.model_validate(GOLDEN_AIN).members[0]
         assert leader.emblem is not None
-        assert (leader.emblem.background_type, leader.emblem.symbol1, leader.emblem.icon_style) == (1, 4, 1)
+        assert (leader.emblem.background_type, leader.emblem.symbol1, leader.emblem.is_set) == (1, 4, True)
+
+    def test_an_emblem_that_is_not_an_object_reads_as_none(self):
+        assert AllianceMember.model_validate({"OID": 1, "E": 7}).emblem is None
 
 
 class TestGoldenCastlePayloads:
@@ -523,29 +527,36 @@ class TestGoldenPlayerInfo:
         assert response.player_id == 4242
         assert response.player_name == "TargetPlayer"
         assert response.alliance_id == 190426
-        assert response.alliance_name == "Knights of HOPE"
+        assert response.alliance_name == "Test Alliance"
         assert response.has_bird is True
         assert response.bird_end_time is not None
 
     def test_castles_are_flattened_across_kingdoms(self):
         castles = GetPlayerInfoResponse.model_validate(GOLDEN_GDI).get_castles()
-        assert [(c.name, c.kingdom, c.x, c.y, c.castle_type) for c in castles] == [
+        assert [(c.castle_name, c.kingdom_id, c.x, c.y, c.castle_type) for c in castles] == [
             ("Main Castle", 0, 640, 655, 1),
             ("Outpost North", 0, 700, 700, 4),
             ("Ice Capital", 2, 300, 400, 3),
         ]
 
-    def test_castle_type_names_are_resolved(self):
-        castles = GetPlayerInfoResponse.model_validate(GOLDEN_GDI).get_castles()
-        assert [c.castle_type_name for c in castles] == ["Castle", "Outpost", "Capital"]
+    def test_the_castle_list_is_the_gcl_model(self):
+        response = GetPlayerInfoResponse.model_validate(GOLDEN_GDI)
+        assert isinstance(response.castle_list, GetCastlesResponse)
+        assert response.castle_list.player_id == 4242
+        assert [c.castle_id for c in response.castle_list.castles] == [12345, 55555, 77777]
+
+    def test_an_unwrapped_row_parses_too(self):
+        row = gdi_location_row(1, 640, 655, 12345, 4242, "Main Castle", 0)
+        response = GetPlayerInfoResponse.model_validate({"gcl": {"C": [{"KID": 0, "AI": [{"AI": row, "AOT": 30}]}]}})
+        assert [(c.castle_id, c.abandon_outpost_seconds) for c in response.get_castles()] == [(12345, 30)]
 
     def test_capturer_id_is_read_from_the_type_specific_index(self):
         # Outposts carry it at index 15, capitals at index 14 - reading the
         # wrong one reports a capture that is not happening (or misses one).
-        castles = {c.name: c for c in GetPlayerInfoResponse.model_validate(GOLDEN_GDI).get_castles()}
-        assert castles["Main Castle"].is_being_captured is False
-        assert castles["Outpost North"].capturer_id == 9999
-        assert castles["Ice Capital"].capturer_id == 8888
+        castles = {c.castle_name: c for c in GetPlayerInfoResponse.model_validate(GOLDEN_GDI).get_castles()}
+        assert castles["Main Castle"].occupier_id == -1
+        assert castles["Outpost North"].occupier_id == 9999
+        assert castles["Ice Capital"].occupier_id == 8888
 
     def test_captures_are_extracted_with_their_kingdom(self):
         captures = GetPlayerInfoResponse.model_validate(GOLDEN_GDI).get_location_captures()
@@ -565,6 +576,76 @@ class TestGoldenPlayerInfo:
         assert response.get_castles() == []
         assert response.get_location_captures() == []
         assert response.has_bird is False
+
+    def test_the_owner_crest_is_typed(self):
+        owner = GetPlayerInfoResponse.model_validate(GOLDEN_GDI).owner
+        assert owner is not None and owner.emblem is not None
+        assert (owner.emblem.background_type, owner.emblem.is_set) == (1, False)
+        assert [(c.area_id, c.area_type) for c in owner.castle_positions] == [(12345, 1)]
+
+
+class TestSearchPlayer:
+    """WSPCommand.executeCommand: gaa is a map area reply."""
+
+    def test_the_found_player_is_the_first_owner_record(self):
+        payload = {
+            "X": 640,
+            "Y": 655,
+            "gaa": {
+                "AI": [[1, 640, 655, 12345, 4242, 5, 5, 5, 0, 0, "Main Castle"]],
+                "OI": [{"OID": 4242, "N": "TargetPlayer", "L": 70, "AID": 190426}],
+            },
+        }
+        response = SearchPlayerResponse.model_validate(payload)
+        player = response.get_player()
+        assert player is not None
+        assert (player.owner_id, player.owner_name, player.level, player.alliance_id) == (
+            4242,
+            "TargetPlayer",
+            70,
+            190426,
+        )
+        assert [(i.x, i.y, i.owner_id) for i in response.area.items] == [(640, 655, 4242)]
+
+    def test_the_found_player_owns_the_area_at_x_y(self):
+        # parseSearchInfos opens the area at X/Y, so a neighbour listed first is not the player
+        payload = {
+            "X": 640,
+            "Y": 655,
+            "gaa": {
+                "AI": [
+                    [1, 600, 600, 111, 7, 5, 5, 5, 0, 0, "Neighbour"],
+                    [1, 640, 655, 12345, 4242, 5, 5, 5, 0, 0, "Main Castle"],
+                ],
+                "OI": [{"OID": 7, "N": "Neighbour"}, {"OID": 4242, "N": "TargetPlayer"}],
+            },
+        }
+        player = SearchPlayerResponse.model_validate(payload).get_player()
+        assert player is not None and player.owner_id == 4242
+
+    @pytest.mark.parametrize("payload", [{}, {"gaa": "junk"}, {"gaa": {"OI": []}}])
+    def test_no_owner_record_is_no_player(self, payload):
+        assert SearchPlayerResponse.model_validate(payload).get_player() is None
+
+
+class TestPlayerInfoLandmarks:
+    def test_landmark_lists_join_the_first_kingdom(self):
+        # GDICommand.addGKLToGC and friends unwrap each row and push it into gcl.C[0].AI
+        tower = gdi_location_row(1, 50, 60, 888, 4242, "Tower", 0)
+        tower[0] = 23
+        response = GetPlayerInfoResponse.model_validate(
+            {
+                "gcl": {"C": [{"KID": 0, "AI": [{"AI": gdi_location_row(1, 640, 655, 12345, 4242, "Main", 0)}]}]},
+                "gkl": {"AI": [[tower]]},
+                "gml": {"AI": []},
+            }
+        )
+        assert [c.castle_id for c in response.get_castles()] == [12345, 888]
+
+    def test_a_gcl_row_in_an_extra_list_is_not_unwrapped(self):
+        wrapped = {"AI": [gdi_location_row(1, 640, 655, 12345, 4242, "Main", 0)]}
+        response = GetPlayerInfoResponse.model_validate({"gcl": {"C": [{"KID": 0, "AI": [wrapped]}]}})
+        assert response.get_castles() == []
 
 
 class TestGoldenSupportDefense:
@@ -657,7 +738,20 @@ class TestGoldenMapArea:
         assert (owner.glory_points, owner.highest_glory_points, owner.storm_title_id) == (6469992, 132766143, -1)
         assert owner.has_premium_flag is True and owner.is_searching_alliance is False
         assert owner.area_positions == [[0, 1591282, 598, 201, 1], [0, 16512168, 600, 205, 4]]
-        assert owner.faction == {"FID": 1, "TID": 113}
+        assert owner.faction is not None
+        assert (owner.faction.faction_id, owner.faction.title_id) == (1, 113)
+        assert owner.alliance_emblem is None
+
+    def test_owner_record_alliance_crest(self):
+        record = {**self.OWNER, "aee": {"ACCA": {"ACLI": "4", "ACCS": [3, 7, 11]}}}
+        owner = GetMapAreaResponse.model_validate({"KID": 0, "AI": [], "OI": [record]}).owners[0]
+        assert owner.alliance_emblem is not None and owner.alliance_emblem.crest is not None
+        assert (owner.alliance_emblem.crest.layout_id, owner.alliance_emblem.crest.color_ids) == (4, [3, 7, 11])
+
+    def test_owner_record_blocks_that_are_not_objects_read_as_none(self):
+        record = {**self.OWNER, "E": 0, "aee": [], "FN": 1}
+        owner = GetMapAreaResponse.model_validate({"KID": 0, "AI": [], "OI": [record]}).owners[0]
+        assert (owner.emblem, owner.alliance_emblem, owner.faction) == (None, None, None)
 
     def test_position_lists_lose_an_extra_wrapper(self):
         record = {**self.OWNER, "AP": [[[10, 5, 1, 2, 1]]], "VP": [[[0, 6, 3, 4, 2]]]}
@@ -829,20 +923,24 @@ class TestPositionalArrayParsers:
         with pytest.raises(ValidationError):
             MapAreaItem.from_list(data)
 
-    @pytest.mark.parametrize("data", [[], [[]], [0], [0, 1], [0, 1, 2], [0, 1, 2, 3]])
-    def test_member_castle_tolerates_short_arrays(self, data):
-        castle = MemberCastle.from_list(data)
-        # A missing type field means "unknown", not "main castle".
-        assert castle.castle_type == 0
+    @pytest.mark.parametrize("data", [[], [[]], [0], [0, 1], [0, 1, 2], ["a", "b", "c", "d", "e"], "abcde"])
+    def test_castle_position_rows_that_do_not_fit_are_skipped(self, data):
+        member = AllianceMember.model_validate({"OID": 1, "AP": [data, [0, 12345, 640, 655, 1]]})
+        assert [(c.area_id, c.area_type) for c in member.castle_positions] == [(12345, 1)]
 
-    def test_member_castle_unwraps_a_doubly_nested_entry(self):
-        castle = MemberCastle.from_list([[0, 12345, 640, 655, 1]])
-        assert (castle.kingdom, castle.area_id, castle.x, castle.y, castle.castle_type) == (0, 12345, 640, 655, 1)
+    def test_a_castle_position_without_its_area_type_is_kept(self):
+        # MinWorldMapCastleInfoVO.fillFromParamObject reads row[4] raw, so a four-field row still counts
+        member = AllianceMember.model_validate({"OID": 1, "AP": [[0, 12345, 640, 655]]})
+        assert [(c.area_id, c.area_type) for c in member.castle_positions] == [(12345, 0)]
 
-    @pytest.mark.parametrize("data", [["a", "b", "c", "d", "e"], "abcde"])
-    def test_member_castle_rejects_wrong_types(self, data):
-        with pytest.raises(ValidationError):
-            MemberCastle.from_list(data)
+    def test_castle_positions_unwrap_a_doubly_nested_entry(self):
+        member = AllianceMember.model_validate(
+            {"OID": 1, "AP": [[[0, 12345, 640, 655, 1]]], "VP": [[[0, 6, 3, 4, 10]]]}
+        )
+        assert [(c.kingdom_id, c.area_id, c.x, c.y, c.area_type) for c in member.castle_positions] == [
+            (0, 12345, 640, 655, 1)
+        ]
+        assert [c.area_type for c in member.village_positions] == [10]
 
     @pytest.mark.parametrize("data", [[], [1], [1, 2], [1, 2, 3]])
     def test_player_castle_short_array_yields_defaults(self, data):
@@ -864,13 +962,14 @@ class TestPositionalArrayParsers:
             PlayerCastle.from_list(data)
 
     @pytest.mark.parametrize("data", [[], [1], [1, 2], [1, 2, "nope"], [1, 2, []], [1, 2, {}]])
-    def test_alliance_search_result_degrades_to_unknown(self, data):
-        result = AllianceSearchResult.from_list(data)
-        assert result.name == "Unknown" or result.alliance_id == 0
+    def test_alliance_search_result_without_an_alliance_row_has_defaults(self, data):
+        result = AllianceSearchResult.model_validate(data)
+        assert (result.alliance_id, result.name, result.member_count) == (0, "", 0)
 
-    def test_alliance_search_result_rejects_a_non_numeric_id(self):
-        with pytest.raises(ValidationError):
-            AllianceSearchResult.from_list([1, 2, ["x", "y"]])
+    def test_alliance_search_result_reads_numbers_like_the_client(self):
+        result = AllianceSearchResult.model_validate(["3", 2.0, ["x", 7, "12", None]])
+        assert (result.rank, result.score, result.alliance_id, result.name, result.member_count) == (3, 2, 0, "7", 12)
+        assert result.fame_points == 0
 
 
 class TestRankingEntryDriftedLayouts:
@@ -951,25 +1050,25 @@ class TestMalformedNestedResponsePayloads:
         assert response.members == []
         assert response.online_members == []
 
-    def test_drifted_map_row_is_skipped_and_counted_by_the_item_accessor(self, caplog):
-        # The payload itself parses; the raw AI rows are validated lazily, so a
-        # drifted row surfaces when .items / .get_moving_flags() is read. Per
-        # TestDriftedPayloadsMustNotCrashAccessors, it must be skipped and
-        # logged there, never raised.
-        response = GetMapAreaResponse.model_validate({"KID": 0, "AI": [["?", "?", "?", "?"]]})
-        assert response.kingdom == Kingdom.GREEN
+    def test_drifted_map_row_is_skipped_and_counted_at_parse_time(self, caplog):
         with caplog.at_level(logging.WARNING, logger="empire_core.protocol.models.map"):
-            assert response.items == []
-            assert response.get_moving_flags() == {}
+            response = GetMapAreaResponse.model_validate({"KID": 1, "AI": [["?", "?", "?", "?"]]})
+        assert response.kingdom == Kingdom.SANDS
+        assert response.items == []
+        assert response.get_moving_flags() == {}
         assert "Skipped 1/1" in caplog.text
+        assert "kingdom 1" in caplog.text
 
     def test_map_rows_survive_a_drifted_neighbour(self, caplog):
         good_row = [1, 640, 655, 900, 4242]
-        response = GetMapAreaResponse.model_validate({"KID": 0, "AI": [["?", "?", "?", "?"], good_row]})
         with caplog.at_level(logging.WARNING, logger="empire_core.protocol.models.map"):
-            items = response.items
-        assert [(i.x, i.y) for i in items] == [(640, 655)]
-        assert "Skipped 1/2" in caplog.text
+            response = GetMapAreaResponse.model_validate({"KID": 0, "AI": [["?", "?", "?", "?"], good_row, "junk"]})
+        assert [(i.x, i.y, i.owner_id) for i in response.items] == [(640, 655, 4242)]
+        assert response.items[0].raw_data == good_row
+        assert "Skipped 1/3" in caplog.text
+
+    def test_a_map_area_without_a_row_list_has_no_items(self):
+        assert GetMapAreaResponse.model_validate({"KID": 0, "AI": {"x": 1}}).items == []
 
 
 class TestDriftedPayloadsMustNotCrashAccessors:
@@ -990,20 +1089,20 @@ class TestDriftedPayloadsMustNotCrashAccessors:
         assert response.get_castles() == []
 
     def test_drifted_kingdom_entry_is_skipped_rather_than_crashing(self, caplog):
-        response = GetPlayerInfoResponse.model_validate(
-            {
-                "gcl": {
-                    "C": [
-                        {"KID": 0, "AI": [{"AI": [gdi_location_row(1, 1, 2, 3, 4, "Keep", 0)]}]},
-                        "unexpected-string-entry",
-                    ]
+        with caplog.at_level(logging.WARNING, logger="empire_core.protocol.models.castle"):
+            response = GetPlayerInfoResponse.model_validate(
+                {
+                    "gcl": {
+                        "C": [
+                            {"KID": 0, "AI": [{"AI": gdi_location_row(1, 1, 2, 3, 4, "Keep", 0)}]},
+                            "unexpected-string-entry",
+                        ]
+                    }
                 }
-            }
-        )
-        with caplog.at_level(logging.WARNING, logger="empire_core.protocol.models.player"):
-            assert [c.name for c in response.get_castles()] == ["Keep"]
+            )
+        assert [c.castle_name for c in response.get_castles()] == ["Keep"]
         # Skipped silently is a hole too: the drop must be visible, once.
-        assert "Skipped 1/2" in caplog.text
+        assert caplog.text.count("Skipped 1/2") == 1
 
     def test_string_unit_count_does_not_crash_the_defense_total(self):
         response = GetSupportDefenseResponse.model_validate({"SCID": 1, "S": [[[487, 100]], [[488, "20"]]]})
@@ -1017,23 +1116,17 @@ class TestDriftedPayloadsMustNotCrashAccessors:
         response = GetSupportDefenseResponse.model_validate({"SCID": 1, "S": [[[487]], ["junk"], [[487, 5]]]})
         assert response.get_total_defenders() == 5
 
-    def test_skipped_defense_pairs_are_logged_once_per_call(self, caplog):
+    def test_unreadable_defense_counts_read_as_zero_like_the_client(self):
+        # fillFromWodAmountArray reads int() of each value, and UnitInventoryList.addUnit skips 0
         response = GetSupportDefenseResponse.model_validate(
             {"SCID": 7, "S": [[[487, "x"], [488, None], [489, 5]], ["junk"]]}
         )
-        with caplog.at_level(logging.WARNING, logger="empire_core.protocol.models.defense"):
-            assert response.get_total_defenders() == 5
-        records = [r for r in caplog.records if r.levelno == logging.WARNING]
-        assert len(records) == 1
-        assert "Skipped 3" in records[0].getMessage()
+        assert response.defense_positions == [[[489, 5]], []]
+        assert response.get_total_defenders() == 5
 
-    def test_skipped_pairs_in_the_per_position_grouping_are_logged(self, caplog):
+    def test_zero_counts_are_left_out_of_the_per_position_grouping(self):
         response = GetSupportDefenseResponse.model_validate({"SCID": 7, "S": [[[487, "x"], [488, 20]]]})
-        with caplog.at_level(logging.WARNING, logger="empire_core.protocol.models.defense"):
-            assert response.get_units_by_position() == [{488: 20}]
-        records = [r for r in caplog.records if r.levelno == logging.WARNING]
-        assert len(records) == 1
-        assert "Skipped 1" in records[0].getMessage()
+        assert response.get_units_by_position() == [{488: 20}]
 
     def test_clean_defense_payloads_log_nothing(self, caplog):
         response = GetSupportDefenseResponse.model_validate({"SCID": 1, "S": [[[487, 100]]]})
@@ -1050,3 +1143,136 @@ class TestRenameCastle:
 
     def test_the_reply_reads_p(self):
         assert RenameCastleResponse.model_validate({"CID": 1, "KID": 2, "P": 0}).is_rename == 0
+
+
+class TestOwnerRecordLeniency:
+    """Values the client reads through parseInt, int() or raw must not fail a whole reply."""
+
+    def test_a_null_or_odd_crest_faction_or_alliance_crest_still_parses(self):
+        from empire_core.protocol.models import GetMapAreaResponse
+
+        owner = {
+            "OID": 5,
+            "E": {"IS": 2, "S1": None, "SC1": "#ff0000"},
+            "FN": {"FID": 1, "PMS": None},
+            "aee": {"ACCA": {"ACLI": 1, "ACCS": None}},
+        }
+        response = GetMapAreaResponse.model_validate({"KID": 0, "AI": [], "OI": [owner]})
+        record = response.owners[0]
+        assert record.emblem is not None and record.emblem.is_set is True
+        assert record.emblem.symbol1_color == 0xFF0000
+        assert record.faction is not None and record.faction.protection_status == 0
+        assert record.alliance_emblem is not None and record.alliance_emblem.crest is not None
+        assert record.alliance_emblem.crest.color_ids == []
+
+    def test_an_unhashable_area_type_costs_only_its_row(self):
+        from empire_core.protocol.models import GetMapAreaResponse
+
+        response = GetMapAreaResponse.model_validate({"KID": 0, "AI": [[[1], 2, 3, 4], [2, 5, 6, -1, 0, 0, 0]]})
+        assert [item.item_type for item in response.items] == [2]
+
+    def test_a_gcl_row_that_cannot_be_read_costs_only_itself(self):
+        from empire_core.protocol.models import GetCastlesResponse
+
+        bad = [3, 10, 20, 99, 5, None, None, None, None, None, None, 0, 0, 0, 77, 0, 0]
+        good = [1, 30, 40, 100, 5, 1, 1, 1, 1, 1, "Home", 0, 0, 0, 77, 0, 0]
+        response = GetCastlesResponse.model_validate({"C": [{"KID": 0, "AI": [{"AI": bad}, {"AI": good}]}]})
+        assert [castle.castle_id for castle in response.castles] == [100]
+
+
+class TestLeaderboardLeniency:
+    def test_null_and_odd_values_read_as_the_getter_defaults(self):
+        from empire_core.protocol.models import GetRankingListResponse
+
+        response = GetRankingListResponse.model_validate(
+            {"L": [{"R": 1, "S": 10, "P": "a", "A": None}, {"R": None, "S": None, "P": None, "I": "abc"}]}
+        )
+        first, second = response.scores
+        assert (first.rank, first.alliance_name) == (1, "")
+        assert (second.rank, second.score, second.player_name, second.instance_id) == (-1, -1, "", 0)
+
+
+class TestRelicInfo:
+    # A captured relic row: index 12 is [relic_type_id, relic_category_id, might, gem]
+    RELIC = [
+        6109572530, 1, 2, 5, -1,
+        [[4, 84, [116.2]], [5, 61, [75.1]], [103, 53, [11.7]]],
+        -1, -1, 0, -1, -1, 3,
+        [1, 6, 2980, [890593, 32, 6, 2770, [[302, 61, [34.7]], [305, 62, [10.0]], [307, 54, [4.6]]], 0]],
+    ]  # fmt: skip
+
+    def test_a_relic_carries_its_type_might_and_gem(self):
+        from empire_core.protocol.models.commanders import Equipment
+
+        item = Equipment.model_validate(self.RELIC)
+        assert item.is_relic and len(item.relic_bonuses) == 3
+        info = item.relic_info
+        assert info is not None and (info.relic_type_id, info.relic_category_id, info.might) == (1, 6, 2980)
+        assert info.gem is not None
+        assert (info.gem.gem_id, info.gem.relic_type_id, info.gem.might, info.gem.enchantment_level) == (
+            890593, 32, 2770, 0,
+        )  # fmt: skip
+        assert [b.relic_effect_id for b in info.gem.bonuses] == [302, 305, 307]
+
+    def test_no_gem_and_ordinary_items(self):
+        from empire_core.protocol.models.commanders import Equipment
+
+        assert Equipment.model_validate([*self.RELIC[:12], [1, 6, 2980, []]]).relic_info.gem is None  # type: ignore[union-attr]
+        assert Equipment.model_validate([*self.RELIC[:12], "junk"]).relic_info is None
+        ordinary = [*self.RELIC[:11], 0, [1, 6, 2980, []]]
+        assert Equipment.model_validate(ordinary).relic_info is None
+
+
+class TestMapAreaStructureLevels:
+    """Only castle-like rows carry levels at fields 5 to 9 (InteractiveMapobjectVO, Capital, Metropol)."""
+
+    def test_castle_rows_floor_keep_wall_and_gate(self):
+        item = MapAreaItem.from_list([1, 1, 2, 3, 4, 0, 0, 0, 2, 1, "c"])
+        assert (item.keep_level, item.wall_level, item.gate_level, item.tower_level, item.moat_level) == (1, 1, 1, 2, 1)
+
+    def test_capital_rows_take_the_levels_as_sent(self):
+        item = MapAreaItem.from_list([MapItemType.CAPITAL, 1, 2, 3, 4, 0, 5, 6, 7, 8, "cap"])
+        assert (item.keep_level, item.wall_level, item.gate_level, item.tower_level, item.moat_level) == (0, 5, 6, 7, 8)
+
+    def test_landmarks_carry_no_structure_levels(self):
+        tower = MapAreaItem.from_list([MapItemType.KINGS_TOWER, 1, 2, 3, 4, 0, 60, "tower"])
+        monument = MapAreaItem.from_list([MapItemType.MONUMENT, 1, 2, 3, 4, 2, 7, 0, 60, "monument"])
+        laboratory = MapAreaItem.from_list([MapItemType.LABORATORY, 1, 2, 3, 4, 9, 0, 60, "lab"])
+        for item in (tower, monument, laboratory):
+            assert (item.keep_level, item.wall_level, item.gate_level, item.tower_level, item.moat_level) == (0,) * 5
+        assert (tower.landmark_level, monument.landmark_level, laboratory.landmark_level) == (None, 7, 9)
+
+
+class TestAllianceInfoFlags:
+    def test_settings_read_as_alliance_info_vo_does(self):
+        from empire_core.protocol.models.alliance import AllianceInfo
+
+        info = AllianceInfo.model_validate(
+            {
+                "CF": "1200",
+                "HF": 3000,
+                "IS": 1,
+                "IA": 0,
+                "KA": 1,
+                "AW": 1,
+                "HP": 0,
+                "SP": 1,
+                "AA": 3,
+                "AP": 12.5,
+                "A": None,
+            }
+        )
+        assert (info.fame_points, info.highest_fame_points, info.application_count, info.aqua_points) == (
+            1200,
+            3000,
+            3,
+            12.5,
+        )
+        assert (info.is_searching_members, info.is_accepting_members, info.is_king_alliance, info.auto_war) == (
+            True, False, True, True,
+        )  # fmt: skip
+        assert (info.can_be_invited_to_hard_pact, info.can_be_invited_to_soft_pact, info.announcement) == (
+            False,
+            True,
+            "",
+        )

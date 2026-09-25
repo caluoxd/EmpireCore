@@ -12,32 +12,18 @@ from __future__ import annotations
 import logging
 import warnings
 from enum import IntEnum
+from typing import Any
 
-from pydantic import ConfigDict, Field, ValidationError, field_validator
+from pydantic import ConfigDict, Field, ValidationError, ValidationInfo, field_validator
 
-from .alliance import MemberEmblem
-from .base import BasePayload, BaseRequest, BaseResponse, Position
+from .base import BasePayload, BaseRequest, BaseResponse, ClientInt, Kingdom, Position, client_int
+from .movement import OwnerCrest, OwnerFaction
 
 logger = logging.getLogger(__name__)
 
 # =============================================================================
 # Map Item Types
 # =============================================================================
-
-
-class Kingdom(IntEnum):
-    """
-    Kingdom identifiers used throughout the game.
-
-    Each kingdom has different terrain and unit types.
-    """
-
-    GREEN = 0  # Green Kingdom - basic/starter kingdom
-    SANDS = 1  # Sand Kingdom - desert units
-    ICE = 2  # Ice Kingdom - ice/frost units
-    FIRE = 3  # Fire Kingdom - lava/fire units
-    STORM = 4  # Storm Kingdom - storm/lightning units
-    BERIMOND = 10  # Berimond event kingdom
 
 
 class MapItemType(IntEnum):
@@ -193,6 +179,20 @@ FACTION_LANDMARK_TYPES = frozenset(
     }
 )
 
+# Rows whose structure levels sit at fields 5 to 9. InteractiveMapobjectVO.parseAreaInfo
+# (bundle line 3631) reads them through int() and floors keep, wall and gate at 1;
+# CapitalMapobjectVO (18731) and MetropolMapobjectVO (21611) take them as sent.
+# Kings towers, monuments, laboratories, villages and isles parse their own rows
+# and leave the inherited levels at 0.
+_FLOORED_LEVEL_TYPES = frozenset(
+    {MapItemType.CASTLE, MapItemType.OUTPOST, MapItemType.KINGDOM_CASTLE, MapItemType.FACTION_CAMP}
+)
+_RAW_LEVEL_TYPES = frozenset({MapItemType.CAPITAL, MapItemType.METRO})
+
+# The level of an upgradable landmark: MonumentMapobjectVO reads it at field 6,
+# LaboratoryMapobjectVO at field 5.
+_LANDMARK_LEVEL_FIELDS: dict[int, int] = {MapItemType.MONUMENT: 6, MapItemType.LABORATORY: 5}
+
 INVASION_AREA_TYPES = frozenset(
     {
         MapItemType.SAMURAI_CAMP,
@@ -229,7 +229,11 @@ class MapAreaItem(BasePayload):
     x: int = 0
     y: int = 0
     owner_id: int = -1
-    raw_data: list = []  # Full raw array for extended parsing
+    raw_data: list[Any] = Field(
+        default_factory=list,
+        description="The whole row, kept raw: past [type, x, y] its layout is whatever the parseAreaInfo "
+        "of the area type's map object reads (WorldmapObjectFactory.parseWorldMapArea, bundle line 5343)",
+    )
 
     @classmethod
     def from_list(cls, data: list) -> "MapAreaItem":
@@ -290,17 +294,28 @@ class MapAreaItem(BasePayload):
         return self._dungeon_field(_DUNGEON_KINGDOM_FIELD)
 
     def _level_field(self, index: int, minimum: int = 0) -> int:
-        """A structure level from an owned-location row."""
-        if self.item_type == MapItemType.DUNGEON or len(self.raw_data) <= index:
+        """A structure level, 0 for a row that carries none."""
+        if len(self.raw_data) <= index:
             return 0
         value = self.raw_data[index]
-        if isinstance(value, bool) or not isinstance(value, int):
-            return 0
-        return max(value, minimum)
+        if self.item_type in _FLOORED_LEVEL_TYPES:
+            return max(client_int(value), minimum)
+        if self.item_type in _RAW_LEVEL_TYPES and isinstance(value, int) and not isinstance(value, bool):
+            return value
+        return 0
+
+    @property
+    def landmark_level(self) -> int | None:
+        """A monument's or laboratory's level, or None for other types."""
+        index = _LANDMARK_LEVEL_FIELDS.get(self.item_type)
+        if index is None or len(self.raw_data) <= index:
+            return None
+        value = self.raw_data[index]
+        return value if isinstance(value, int) and not isinstance(value, bool) else None
 
     @property
     def keep_level(self) -> int:
-        """The defender's keep level; the client floors this at 1."""
+        """The defender's keep level; floored at 1 except on a capital or metropolis, 0 for a landmark."""
         return self._level_field(_KEEP_LEVEL_FIELD, minimum=1)
 
     @property
@@ -461,6 +476,69 @@ class MapAreaItem(BasePayload):
             return f"UNKNOWN_{self.item_type}"
 
 
+def parse_area_rows(value: Any) -> tuple[list[MapAreaItem], int]:
+    """
+    Map rows as :class:`MapAreaItem`, with how many rows could not be read.
+
+    A row shorter than ``[type, x, y, id]`` is dropped without counting, and a
+    row whose fields have the wrong types is counted and skipped, so one bad
+    row costs only itself.
+
+    Client: ``CastleWorldmapData.parseAreaInfos`` (bundle line 18993) hands
+    each row to ``WorldmapObjectFactory.parseWorldMapArea`` (bundle line 5343).
+    """
+    if not isinstance(value, list):
+        return [], 0
+    items: list[MapAreaItem] = []
+    skipped = 0
+    for row in value:
+        if isinstance(row, MapAreaItem):
+            items.append(row)
+            continue
+        if not (isinstance(row, list) and len(row) >= 4):
+            continue
+        try:
+            items.append(MapAreaItem.from_list(row))
+        except (ValidationError, TypeError):
+            skipped += 1
+    return items, skipped
+
+
+class AllianceCrest(BasePayload):
+    """
+    An alliance's crest: a layout and its colours.
+
+    Client: ``AllianceCrestVO.fillWithData`` (bundle line 11233).
+    """
+
+    layout_id: ClientInt = Field(alias="ACLI", default=0, description="Crest layout id")
+    color_ids: list[ClientInt] = Field(
+        alias="ACCS", default_factory=list, description="Colour ids, one per layout colour"
+    )
+
+    @field_validator("color_ids", mode="before")
+    @classmethod
+    def _stored_raw(cls, value: Any) -> Any:
+        # The client stores ACCS as it arrives, so a missing list is no colours
+        return value if isinstance(value, list) else []
+
+
+class AllianceEmblem(BasePayload):
+    """
+    The alliance crest block of an owner record: its ``aee``.
+
+    Client: ``WorldMapOwnerInfoVO.fillFromParamObject`` (bundle line 10794)
+    reads only ``ACCA``, and only for a player in an alliance.
+    """
+
+    crest: AllianceCrest | None = Field(alias="ACCA", default=None, description="The alliance's current crest")
+
+    @field_validator("crest", mode="before")
+    @classmethod
+    def _crest_needs_an_object(cls, value: Any) -> Any:
+        return value if isinstance(value, dict) else None
+
+
 class MapObject(BasePayload):
     """
     An owner record from a map scan's OI list.
@@ -473,35 +551,43 @@ class MapObject(BasePayload):
     Client: WorldMapOwnerInfoVO.fillFromParamObject
     """
 
-    owner_id: int | None = Field(alias="OID", default=None)
+    owner_id: ClientInt | None = Field(alias="OID", default=None)
     is_dummy: bool = Field(alias="DUM", default=False)
     owner_name: str | None = Field(alias="N", default=None)
-    emblem: MemberEmblem | None = Field(alias="E", default=None)
-    level: int = Field(alias="L", default=0)
-    legendary_level: int = Field(alias="LL", default=0)
-    honor: int = Field(alias="H", default=0)
-    achievement_points: int = Field(alias="AVP", default=0)
-    glory_points: int = Field(alias="CF", default=0)
-    highest_glory_points: int = Field(alias="HF", default=0)
-    prefix_title: int = Field(alias="PRE", default=0)
-    suffix_title: int = Field(alias="SUF", default=0)
-    current_top_x: int = Field(alias="TOPX", default=0)
-    might_points: int = Field(alias="MP", default=0)
+    emblem: OwnerCrest | None = Field(alias="E", default=None, description="The player's crest")
+    level: ClientInt = Field(alias="L", default=0)
+    legendary_level: ClientInt = Field(alias="LL", default=0)
+    honor: ClientInt = Field(alias="H", default=0)
+    achievement_points: ClientInt = Field(alias="AVP", default=0)
+    glory_points: ClientInt = Field(alias="CF", default=0)
+    highest_glory_points: ClientInt = Field(alias="HF", default=0)
+    prefix_title: ClientInt = Field(alias="PRE", default=0)
+    suffix_title: ClientInt = Field(alias="SUF", default=0)
+    current_top_x: ClientInt = Field(alias="TOPX", default=0)
+    might_points: ClientInt = Field(alias="MP", default=0)
     is_ruin: bool = Field(alias="R", default=False)
-    alliance_id: int | None = Field(alias="AID", default=None)
-    alliance_rank: int = Field(alias="AR", default=0)
+    alliance_id: ClientInt | None = Field(alias="AID", default=None)
+    alliance_rank: ClientInt = Field(alias="AR", default=0)
     alliance_name: str | None = Field(alias="AN", default=None)
-    alliance_emblem: dict | None = Field(alias="aee", default=None)
-    remaining_protection_time: int = Field(alias="RPT", default=0)
+    alliance_emblem: AllianceEmblem | None = Field(alias="aee", default=None, description="The alliance's crest")
+    remaining_protection_time: ClientInt = Field(alias="RPT", default=0)
     area_positions: list[list[int]] | None = Field(alias="AP", default_factory=list)
     village_positions: list[list[int]] | None = Field(alias="VP", default_factory=list)
     is_searching_alliance: bool = Field(alias="SA", default=False)
     has_vip_flag: bool = Field(alias="VF", default=False)
     has_premium_flag: bool = Field(alias="PF", default=False)
-    remaining_relocation_time: int = Field(alias="RRD", default=0)
-    storm_title_id: int = Field(alias="TI", default=-1)  # -1: no title, 50-53: ranks 1-4, 54: ranks 5-10
-    remaining_noob_protection: int = Field(alias="RNP", default=0)
-    faction: dict | None = Field(alias="FN", default=None)
+    remaining_relocation_time: ClientInt = Field(alias="RRD", default=0)
+    storm_title_id: ClientInt = Field(alias="TI", default=-1)  # -1: no title, 50-53: ranks 1-4, 54: ranks 5-10
+    remaining_noob_protection: ClientInt = Field(alias="RNP", default=0)
+    faction: OwnerFaction | None = Field(
+        alias="FN", default=None, description="Faction event standing: FID, PMS, PMT and TID"
+    )
+
+    @field_validator("emblem", "alliance_emblem", "faction", mode="before")
+    @classmethod
+    def _block_needs_an_object(cls, value: Any) -> Any:
+        # The client only reads keys off these; anything that is not an object leaves its defaults
+        return value if isinstance(value, dict) else None
 
     @field_validator("area_positions", "village_positions", mode="before")
     @classmethod
@@ -522,8 +608,10 @@ class GetMapAreaResponse(BaseResponse):
     Command: gaa
     Response format: {"KID": 0, "AI": [[type, x, y, location_id, player_id, ...], ...], ...}
 
-    The AI array contains raw map items. Use get_moving_flags() to extract the
-    castles that are currently in transit.
+    Use get_moving_flags() to extract the castles that are currently in transit.
+
+    Client: ``GAACommand.executeCommand`` (bundle line 130112) reads ``OI``
+    with ``parseOwnerInfoArray`` and ``AI`` with ``parseAreaInfos``.
     """
 
     command = "gaa"
@@ -531,8 +619,20 @@ class GetMapAreaResponse(BaseResponse):
     model_config = ConfigDict(populate_by_name=True, extra="allow")
 
     kingdom: Kingdom = Field(alias="KID", default=Kingdom.GREEN)
-    raw_items: list = Field(alias="AI", default_factory=list)
+    items: list[MapAreaItem] = Field(alias="AI", default_factory=list, description="The area's map rows")
     owners: list[MapObject] = Field(alias="OI", default_factory=list)
+
+    @field_validator("items", mode="before")
+    @classmethod
+    def _parse_rows(cls, value: Any, info: ValidationInfo) -> Any:
+        items, skipped = parse_area_rows(value)
+        if skipped:
+            # One line per response, not per row, so a fully drifted AI array can't flood the log.
+            logger.warning(
+                f"Skipped {skipped}/{len(value)} unparseable AI rows in map area "
+                f"response for kingdom {info.data.get('kingdom')}"
+            )
+        return items
 
     def get_ruins(self) -> list[MapObject]:
         """
@@ -541,32 +641,6 @@ class GetMapAreaResponse(BaseResponse):
         These have no coordinates; see :class:`MapObject`.
         """
         return [owner for owner in self.owners if owner.is_ruin]
-
-    @property
-    def items(self) -> list[MapAreaItem]:
-        """Parse raw AI array into MapAreaItem objects.
-
-        The raw AI rows are validated lazily, so a drifted row surfaces here
-        rather than at parse time. Accessors must not leak raw pydantic errors
-        after parse time, so such rows are skipped and counted instead.
-        """
-        items: list[MapAreaItem] = []
-        skipped = 0
-        for row in self.raw_items:
-            if not (isinstance(row, list) and len(row) >= 4):
-                continue
-            try:
-                items.append(MapAreaItem.from_list(row))
-            except ValidationError:
-                skipped += 1
-        if skipped:
-            # One line per response, not per row, so a fully drifted AI array
-            # can't flood the log.
-            logger.warning(
-                f"Skipped {skipped}/{len(self.raw_items)} unparseable AI rows in map area "
-                f"response for kingdom {self.kingdom}"
-            )
-        return items
 
     def get_moving_flags(self) -> dict[int, tuple[int, int]]:
         """
@@ -644,7 +718,10 @@ __all__ = [
     "GetMapAreaRequest",
     "GetMapAreaResponse",
     "MapAreaItem",
+    "parse_area_rows",
     "MapObject",
+    "AllianceCrest",
+    "AllianceEmblem",
     # FNM - Find NPC
     "FindNPCRequest",
     "FindNPCResponse",

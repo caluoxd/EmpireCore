@@ -261,7 +261,7 @@ def conn(client: EmpireClient) -> ScriptedConnection:
 GOLDEN_AIN: dict[str, Any] = {
     "A": {
         "AID": 190426,
-        "N": "Knights of HOPE",
+        "N": "Test Alliance",
         "A": "HOPE",
         "D": "Recruiting active players",
         "MP": 4213377,
@@ -282,7 +282,7 @@ GOLDEN_AIN: dict[str, Any] = {
                 "CF": 3,
                 "HF": 9,
                 "AID": 190426,
-                "AN": "Knights of HOPE",
+                "AN": "Test Alliance",
                 "RPT": 0,
                 "AP": [[0, 12345, 640, 655, 1], [2, 22222, 300, 400, 4]],
                 "E": {"BGT": 1, "BGC1": 2, "SPT": 3, "S1": 4, "IS": 1},
@@ -476,12 +476,19 @@ class TestRequestSemantics:
         assert exc_info.value.code == 21
 
     def test_unparseable_payload_raises_packet_error(self):
-        # 'gli' requires an ID per commander; a drifted entry must surface as a
+        # 'arc' requires the castle id; a drifted reply must surface as a
         # library error, not a raw pydantic ValidationError.
-        client = make_client({"gli": xt_packet("gli", {"C": [{"N": "no id here"}]})})
+        from empire_core.protocol.models import RenameCastleRequest, RenameCastleResponse
+
+        client = make_client({"arc": xt_packet("arc", {"N": "no id here"})})
         with pytest.raises(PacketError) as exc_info:
-            client.commanders.get_commanders()
-        assert "gli" in str(exc_info.value)
+            client.request(RenameCastleRequest(CID=1, N="x", AT=1, KID=0, P=1), RenameCastleResponse)
+        assert "arc" in str(exc_info.value)
+
+    def test_a_gli_entry_without_an_id_is_skipped(self):
+        # parse_GLI builds every entry; one the library cannot read costs only itself
+        client = make_client({"gli": xt_packet("gli", {"C": [{"N": "no id here"}, {"ID": 2}]})})
+        assert [c.commander_id for c in client.commanders.get_commanders()] == [2]
 
     def test_array_payload_raises_packet_error_not_none(self):
         # A JSON-array payload has no response model, so send() returns None;
@@ -543,12 +550,12 @@ class TestAllianceMembers:
         client = make_client({"ain": xt_packet("ain", GOLDEN_AIN)})
         by_name = {m.name: m for m in client.alliance.get_members(190426)}
 
-        castles = by_name["LeaderGuy"].castles
-        assert [(c.kingdom, c.x, c.y, c.castle_type) for c in castles] == [
+        castles = by_name["LeaderGuy"].castle_positions
+        assert [(c.kingdom_id, c.x, c.y, c.area_type) for c in castles] == [
             (0, 640, 655, 1),
             (2, 300, 400, 4),
         ]
-        assert by_name["AfkDude"].castles == []
+        assert by_name["AfkDude"].castle_positions == []
 
     def test_typed_emblem_is_parsed(self):
         client = make_client({"ain": xt_packet("ain", GOLDEN_AIN)})
@@ -639,7 +646,7 @@ class TestAllianceLocalHelpers:
 
 
 class TestAllianceSearch:
-    GOLDEN_HGH: dict[str, Any] = {"L": [[1, 4213377, [190426, "Knights of HOPE", 47, 4213377]]]}
+    GOLDEN_HGH: dict[str, Any] = {"L": [[1, 4213377, [190426, "Test Alliance", 47, 1520300]]]}
 
     def test_search_parses_positional_results(self):
         client = make_client({"hgh": xt_packet("hgh", self.GOLDEN_HGH)})
@@ -648,9 +655,9 @@ class TestAllianceSearch:
 
         assert len(results) == 1
         assert results[0].alliance_id == 190426
-        assert results[0].name == "Knights of HOPE"
+        assert results[0].name == "Test Alliance"
         assert results[0].member_count == 47
-        assert results[0].might == 4213377
+        assert (results[0].rank, results[0].score, results[0].fame_points) == (1, 4213377, 1520300)
 
     def test_search_sends_the_search_term(self):
         client = make_client({"hgh": xt_packet("hgh", self.GOLDEN_HGH)})
@@ -674,29 +681,24 @@ class TestAllianceSearch:
         client = make_client({"hgh": xt_packet("hgh", [1, 2, 3])})
         assert client.alliance.search_alliances("HOPE") == []
 
-    def test_drifted_entry_degrades_to_unknown(self):
+    def test_a_row_without_an_alliance_keeps_its_defaults(self):
         client = make_client({"hgh": xt_packet("hgh", {"L": [[1, 2], [1, 2, "not-a-list"]]})})
         results = client.alliance.search_alliances("HOPE")
-        assert [r.name for r in results] == ["Unknown", "Unknown"]
+        assert [(r.rank, r.score, r.name) for r in results] == [(1, 2, ""), (1, 2, "")]
 
-    def test_unparseable_payload_raises_packet_error_not_validation_error(self):
-        # 'L' of the wrong type fails model_validate; the documented parse
-        # failure type of the request contract is PacketError.
+    def test_a_list_that_is_not_a_list_is_an_empty_result(self):
         client = make_client({"hgh": xt_packet("hgh", {"L": "junk"})})
-        with pytest.raises(PacketError):
-            client.alliance.search_alliances("HOPE")
+        assert client.alliance.search_alliances("HOPE") == []
 
-    def test_wrong_typed_entry_is_skipped_not_fatal(self, caplog):
-        # Well-shaped but wrong-typed: a non-numeric AID raises ValidationError
-        # inside from_list; only that entry may be lost.
+    def test_a_row_that_is_not_a_list_is_skipped_not_fatal(self, caplog):
         payload = {"L": [[1, 2, ["x", "y"]], self.GOLDEN_HGH["L"][0], 5]}
         client = make_client({"hgh": xt_packet("hgh", payload)})
 
-        with caplog.at_level(logging.WARNING, logger="empire_core.services.alliance"):
+        with caplog.at_level(logging.WARNING, logger="empire_core.protocol.models.alliance"):
             results = client.alliance.search_alliances("HOPE")
 
-        assert [r.name for r in results] == ["Knights of HOPE"]
-        assert "Skipped 2/3" in caplog.text
+        assert [(r.alliance_id, r.name) for r in results] == [(0, "y"), (190426, "Test Alliance")]
+        assert "Skipped 1/3" in caplog.text
 
 
 class TestAllianceChat:
@@ -814,13 +816,16 @@ class TestAllianceHelp:
         assert request_payload(conn(client).sent[0]) == {"CID": 12345, "HT": int(HelpType.HEAL)}
 
     def test_bookmarks_expose_their_positions(self):
-        payload = {"ABL": [{"N": "Enemy cluster", "OI": {"AP": [[0, 1, 640, 655, 1]]}}]}
+        payload = {"ABL": [{"N": "Enemy cluster", "OI": {"OID": 4242, "AP": [[0, 1, 640, 655, 1]]}}, {"N": "Plot"}]}
         client = make_client({"gbl": xt_packet("gbl", payload)})
 
         bookmarks = client.alliance.get_bookmarks()
 
-        assert [b.name for b in bookmarks] == ["Enemy cluster"]
-        assert bookmarks[0].positions == [[0, 1, 640, 655, 1]]
+        assert [b.name for b in bookmarks] == ["Enemy cluster", "Plot"]
+        assert bookmarks[0].owner is not None
+        assert bookmarks[0].owner.owner_id == 4242
+        assert bookmarks[0].owner.area_positions == [[0, 1, 640, 655, 1]]
+        assert bookmarks[1].owner is None
 
 
 # =============================================================================
@@ -1047,15 +1052,31 @@ class TestCreateAttackReply:
         reply = CreateAttackResponse.model_validate(self.LIVE)
 
         assert reply.movement_id == 93337642
-        assert reply.owners == self.LIVE["O"]
+        # parseOwnerInfo skips a record without an OID, so the {} goes.
+        assert [(o.player_id, o.level, o.alliance_id) for o in reply.owners] == [(17743261, 9, -1)]
         # None of the live replies carried gcu.
-        assert reply.currencies == {}
+        assert reply.currencies is None
+
+    def test_the_movement_is_typed(self):
+        reply = CreateAttackResponse.model_validate(self.LIVE)
+
+        movement = reply.attack_movement
+        assert movement is not None
+        assert (movement.movement.target_id, movement.movement.total_time) == (-210, 71)
+        assert movement.full_army is not None and movement.full_army.left == [[10, 2]]
+        assert reply.leader is not None and reply.leader.commander_id == 0
 
     def test_the_currencies_are_kept(self):
         # CurrencyData.parseGCU reads C1 and C2.
         reply = CreateAttackResponse.model_validate(dict(self.LIVE, gcu={"C1": 1200, "C2": 30}))
 
-        assert reply.currencies == {"C1": 1200, "C2": 30}
+        assert reply.currencies is not None
+        assert (reply.currencies.gold, reply.currencies.rubies) == (1200, 30)
+
+    def test_an_unreadable_owner_record_costs_only_itself(self):
+        reply = CreateAttackResponse.model_validate({"O": ["junk", {"OID": 5, "L": "x"}, {"OID": 6}]})
+
+        assert [o.player_id for o in reply.owners] == [6]
 
     def test_attack_in_progress_explains_itself(self):
         from empire_core.protocol.errors import GGEError
@@ -1288,9 +1309,7 @@ class TestAttackService:
         client.game_data = GameData.parse("test", payload)
         client.state.local_player = stub_player(level=70)
         # An equipped item worth +30% units on each side flank.
-        commander = Commander.model_validate(
-            {"ID": 7, "EQ": [[1, 1, 2, 5, -1, [[500, 86, [30.0]]], -1, -1, 0, -1, -1, 1]]}
-        )
+        commander = Commander.model_validate({"ID": 7, "EQ": [[1, 1, 2, 5, -1, [[500, [30.0]]], -1, -1, 0, -1, -1, 1]]})
 
         plain = client.attack.fill_waves(12345, level=13)
         widened = client.attack.fill_waves(12345, level=13, commander=commander)
@@ -1487,8 +1506,8 @@ class TestCommandersService:
 
         commander = client.commanders.get_commanders()[0]
 
-        assert commander.effects == [[12, [5]]]
-        assert commander.area_effects == [[34, [10]]]
+        assert [(e.effect_id, e.values) for e in commander.effects] == [(12, [5])]
+        assert [(e.effect_id, e.values) for e in commander.area_effects] == [(34, [10])]
 
     def test_equipment_parsed(self):
         # EQ entry: [id, slot, wearer, rareID, graphic, bonuses, uniqueID,
@@ -1496,14 +1515,14 @@ class TestCommandersService:
         entry = [880, 2, 2, 4, 3, [[12, [5]]], 5501, 17, 3, 0, -1, 1]
         client = make_client({"gli": xt_packet("gli", {"C": [{"ID": 91, "EQ": [entry]}]})})
 
-        item = client.commanders.get_commanders()[0].equipment()[0]
+        item = client.commanders.get_commanders()[0].equipment[0]
 
         assert item.equipment_id == 880
         assert item.slot == EquipmentSlot.WEAPON
         assert item.wearer_type == WearerType.COMMANDER
         assert item.rarity_id == 4
         assert item.graphic == 3
-        assert item.bonuses == [[12, [5]]]
+        assert [(b.effect_id, b.values) for b in item.bonuses] == [(12, [5])]
         assert item.unique_id == 5501
         assert item.set_id == 17
         assert item.enchantment_level == 3
@@ -1514,7 +1533,7 @@ class TestCommandersService:
     def test_equipment_short_entry_does_not_raise(self):
         client = make_client({"gli": xt_packet("gli", {"C": [{"ID": 91, "EQ": [[880, 2, 2]]}]})})
 
-        item = client.commanders.get_commanders()[0].equipment()[0]
+        item = client.commanders.get_commanders()[0].equipment[0]
 
         assert (item.equipment_id, item.slot) == (880, EquipmentSlot.WEAPON)
         assert item.equipment_type == 0
@@ -1526,12 +1545,12 @@ class TestCommandersService:
         entry = [6515210043, 6, 2, 10, 0, [[242, [25.0]]], 802, 22, 0, -1, -1, 1]
         client = make_client({"gli": xt_packet("gli", {"C": [{"ID": 91, "EQ": [entry]}]})})
 
-        item = client.commanders.get_commanders()[0].equipment()[0]
+        item = client.commanders.get_commanders()[0].equipment[0]
 
         assert item.equipment_id == 6515210043
         assert item.slot == EquipmentSlot.HERO
         assert item.wearer_type == WearerType.COMMANDER
-        assert item.bonuses == [[242, [25.0]]]
+        assert [(b.effect_id, b.values) for b in item.bonuses] == [(242, [25.0])]
         assert item.set_id == 22
         assert item.duration_seconds == -1
         assert item.is_permanent
@@ -1542,7 +1561,7 @@ class TestCommandersService:
         entry = [880, 2, 2, 4, 3, [], 5501, 17, 0, 3600, -1, 0]
         client = make_client({"gli": xt_packet("gli", {"C": [{"ID": 91, "EQ": [entry]}]})})
 
-        item = client.commanders.get_commanders()[0].equipment()[0]
+        item = client.commanders.get_commanders()[0].equipment[0]
 
         assert item.duration_seconds == 3600
         assert not item.is_permanent
@@ -1636,8 +1655,8 @@ def spy_script(
             "bsd",
             {
                 "MID": 9001,
-                "S": [[[487, 100]]],
-                "B": {"K": 1},
+                "S": [[[487, 100]], [], [], [], [], []],
+                "B": {"ID": 2, "WID": 1, "VIS": 4, "N": "", "W": 3, "D": 1, "SPR": 0, "E": [[12, [5.0], "EQ"]]},
                 "AI": {"N": "Enemy Keep", "X": 700, "Y": 710, "K": 0},
             },
         ),
@@ -1653,8 +1672,9 @@ class TestSpySuccessPath:
         assert result.success is True
         assert result.reason is None
         assert result.message_id == 9001
-        assert result.spy_data == [[[487, 100]]]
-        assert result.battle_data == {"K": 1}
+        assert result.spy_data == [[[487, 100]], [], [], [], [], []]
+        assert result.defending_castellan is not None
+        assert (result.defending_castellan.commander_id, result.defending_castellan.wins) == (2, 3)
         assert result.target is not None
         assert result.target.castle_name == "Enemy Keep"
 
@@ -1988,7 +2008,7 @@ class TestSpyFailurePaths:
         result = client.spy.execute_instant_spy(12345, 700, 710)
 
         assert result.spy_data == []
-        assert result.battle_data == {}
+        assert result.defending_castellan is None
         assert result.target is None
         assert result.message_id is None
 
@@ -2027,13 +2047,13 @@ class TestOnResponse:
     def test_unparseable_push_does_not_reach_the_handler(self, caplog):
         client = make_client()
         seen: list[object] = []
-        client.commanders.on_response("gli", seen.append)
+        client.castle.on_response("arc", seen.append)
 
         with caplog.at_level(logging.ERROR, logger="empire_core.client.client"):
-            client._on_packet(xt_packet("gli", {"C": [{"N": "no id"}]}))
+            client._on_packet(xt_packet("arc", {"N": "no id"}))
 
         assert seen == []
-        assert "gli" in caplog.text
+        assert "arc" in caplog.text
 
     def test_commands_without_handlers_are_not_parsed(self):
         client = make_client()
@@ -3027,12 +3047,11 @@ class TestAttackInfo:
         assert info.inventory() == {211: 5323, 601: 100}
 
     def test_scoped_attacker_effects_resolve(self):
-        from empire_core.combat import parse_bonus_entries
         from empire_core.protocol.models import GetAttackInfoResponse
 
         info = GetAttackInfoResponse.model_validate(self.PAYLOAD)
 
-        bonuses = parse_bonus_entries(info.raw_attacker_effects)
+        bonuses = info.attacker_bonuses()
 
         # The construction item's flank bonus arrives tagged CI.
         assert any(b.effect_id == 66 and b.value == 30.0 for b in bonuses)
@@ -3098,7 +3117,7 @@ class TestAttackInfo:
         info = GetAttackInfoResponse.model_validate(self.SPIED)
 
         assert info.stronghold_inventory() == {620: 5}
-        assert info.owner_records() == [{"OID": 4242, "L": 46}, {}]
+        assert [(r.owner_id, r.level) for r in info.owner_records()] == [(4242, 46), (None, 0)]
         assert GetAttackInfoResponse.model_validate({}).kings_tower_bonus == 0
 
     def test_service_sends_the_documented_payload(self):
@@ -3188,7 +3207,7 @@ class TestTargetPrecalculation:
         info = GetLandmarkAttackInfoResponse.model_validate(LIVE_ALI)
 
         assert info.target_row()[:3] == [23, 630, 240]
-        assert [record["OID"] for record in info.owner_records()] == [6537608]
+        assert [record.owner_id for record in info.owner_records()] == [6537608]
 
     def test_an_outpost_conquest_reads_its_barons(self):
         from empire_core.protocol.models import GetOutpostConquerInfoResponse
