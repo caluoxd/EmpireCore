@@ -192,8 +192,8 @@ class Player(BaseModel):
     snake_case names.
 
     Client: ``CastleUserData`` (``parse_GPI``, ``parse_GXP``, ``parse_GHO``,
-    ``parse_UAP``, ``parse_GAL``), ``CurrencyData.parseGCU`` and
-    ``CastleVIPData.parse_VIP``.
+    ``parse_UAP``, ``parse_GAL``), ``CurrencyData.parseGCU`` /
+    ``parseSCE`` and ``CastleVIPData.parse_VIP``.
     """
 
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
@@ -224,8 +224,13 @@ class Player(BaseModel):
     gold: int = 0  # C1 from gcu
     rubies: int = 0  # C2 from gcu
 
-    # Global Inventory (from sce)
-    inventory: dict[str, int] = Field(default_factory=dict)
+    special_currencies: dict[str, int] = Field(
+        default_factory=dict,
+        description=(
+            "Special currency key -> amount, from sce entries [key, amount] (PTT, MS1, LWT, ...); "
+            "generic currencies in the item data, not items. Client: CurrencyData.parseSCE"
+        ),
+    )
 
     # VIP
     vip_points: int = 0  # VP
