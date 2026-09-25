@@ -2,6 +2,59 @@
 
 <!-- version list -->
 
+## v0.38.0 (2026-09-25)
+
+### Bug Fixes
+
+- **state**: Alliance alerts only for players, and the township counts as yours
+  ([#184](https://github.com/eschnitzler/EmpireCore/pull/184),
+  [`ec52eb7`](https://github.com/eschnitzler/EmpireCore/commit/ec52eb72f0790f20888a074d6dd0ea29e3235755))
+
+- **state**: An unreadable LVL or XP keeps the previous value
+  ([#188](https://github.com/eschnitzler/EmpireCore/pull/188),
+  [`6a0a193`](https://github.com/eschnitzler/EmpireCore/commit/6a0a193d1e788ea7fa8792d111857f75852b5574))
+
+- **state**: Apply player pushes after login, plus honor and protection
+  ([#187](https://github.com/eschnitzler/EmpireCore/pull/187),
+  [`3ff527f`](https://github.com/eschnitzler/EmpireCore/commit/3ff527f5b7b58bae52951320943ddfeb018ba6b0))
+
+- **state**: Call the sce entries special currencies, not inventory
+  ([#189](https://github.com/eschnitzler/EmpireCore/pull/189),
+  [`c391575`](https://github.com/eschnitzler/EmpireCore/commit/c391575c9fa624f07d3d50e2fda489bdb5e5c835))
+
+- **state**: Compute legend level and level XP bounds like the client
+  ([#188](https://github.com/eschnitzler/EmpireCore/pull/188),
+  [`6a0a193`](https://github.com/eschnitzler/EmpireCore/commit/6a0a193d1e788ea7fa8792d111857f75852b5574))
+
+- **state**: Copy beginner_protection in snapshots, skip unreadable pushes
+  ([#187](https://github.com/eschnitzler/EmpireCore/pull/187),
+  [`3ff527f`](https://github.com/eschnitzler/EmpireCore/commit/3ff527f5b7b58bae52951320943ddfeb018ba6b0))
+
+- **state**: Drop the deprecated inventory names
+  ([#189](https://github.com/eschnitzler/EmpireCore/pull/189),
+  [`c391575`](https://github.com/eschnitzler/EmpireCore/commit/c391575c9fa624f07d3d50e2fda489bdb5e5c835))
+
+- **state**: Keep movement owner records and alert like the client
+  ([#184](https://github.com/eschnitzler/EmpireCore/pull/184),
+  [`ec52eb7`](https://github.com/eschnitzler/EmpireCore/commit/ec52eb72f0790f20888a074d6dd0ea29e3235755))
+
+- **state**: Read area ids and names at the area type's own positions
+  ([#183](https://github.com/eschnitzler/EmpireCore/pull/183),
+  [`470da9a`](https://github.com/eschnitzler/EmpireCore/commit/470da9a26c9967e7766828578e9165b824441e7f))
+
+- **state**: Read every movement wrapper block the client reads
+  ([#182](https://github.com/eschnitzler/EmpireCore/pull/182),
+  [`c007a99`](https://github.com/eschnitzler/EmpireCore/commit/c007a991f117f5202e57cbd58c312470750d36ef))
+
+- **state**: Store the movements you send from the send replies
+  ([#186](https://github.com/eschnitzler/EmpireCore/pull/186),
+  [`794e132`](https://github.com/eschnitzler/EmpireCore/commit/794e13299fc61d74080f21b8c460132c20a44e42))
+
+- **state**: The deprecated Player.inventory can be assigned again
+  ([#189](https://github.com/eschnitzler/EmpireCore/pull/189),
+  [`c391575`](https://github.com/eschnitzler/EmpireCore/commit/c391575c9fa624f07d3d50e2fda489bdb5e5c835))
+
+
 ## v0.37.0 (2026-09-25)
 
 ### Bug Fixes
