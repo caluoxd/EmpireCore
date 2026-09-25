@@ -2,6 +2,223 @@
 
 <!-- version list -->
 
+## v0.39.0 (2026-09-25)
+
+### Bug Fixes
+
+- **alliance**: Name the ain settings and owner record points as the client reads them
+  ([#203](https://github.com/eschnitzler/EmpireCore/pull/203),
+  [`cceab23`](https://github.com/eschnitzler/EmpireCore/commit/cceab230500fb68a81ad76566d8ef69d5ddaa59d))
+
+- **army**: Send_support no longer uses the premium commander or feathers by default
+  ([#195](https://github.com/eschnitzler/EmpireCore/pull/195),
+  [`d4f6890`](https://github.com/eschnitzler/EmpireCore/commit/d4f6890fa988ce7bdf73508cead07e3549d5d08a))
+
+- **attack**: BPC is the premium commander on attacks too, and supports need a commander
+  ([#195](https://github.com/eschnitzler/EmpireCore/pull/195),
+  [`d4f6890`](https://github.com/eschnitzler/EmpireCore/commit/d4f6890fa988ce7bdf73508cead07e3549d5d08a))
+
+- **attack**: Keep the currency, owner and attack-in-progress data of a cra reply
+  ([#192](https://github.com/eschnitzler/EmpireCore/pull/192),
+  [`b8e7f20`](https://github.com/eschnitzler/EmpireCore/commit/b8e7f20ad086fa47e20c439ea54d06df11ec6390))
+
+- **attack**: Keep the pre-calculation when the tile scan fails, drop treasure dungeons
+  ([#191](https://github.com/eschnitzler/EmpireCore/pull/191),
+  [`5bc2157`](https://github.com/eschnitzler/EmpireCore/commit/5bc2157f74570833fb0cf2a8fdc410363289727b))
+
+- **attack**: Leave spied amounts of 0 or less out, as the client does
+  ([#203](https://github.com/eschnitzler/EmpireCore/pull/203),
+  [`cceab23`](https://github.com/eschnitzler/EmpireCore/commit/cceab230500fb68a81ad76566d8ef69d5ddaa59d))
+
+- **attack**: Model msd and sdc as the dungeon cooldown skips they are
+  ([#193](https://github.com/eschnitzler/EmpireCore/pull/193),
+  [`ea54062`](https://github.com/eschnitzler/EmpireCore/commit/ea540625abb4faa7f3a23cdf437be80af017a279))
+
+- **attack**: No defender legend skills without a spy report
+  ([#190](https://github.com/eschnitzler/EmpireCore/pull/190),
+  [`9eed1b5`](https://github.com/eschnitzler/EmpireCore/commit/9eed1b5f7f16d5920535abf56cd7c51070e6b242))
+
+- **attack**: Parse a dungeon skip's reply row as a map area
+  ([#193](https://github.com/eschnitzler/EmpireCore/pull/193),
+  [`ea54062`](https://github.com/eschnitzler/EmpireCore/commit/ea540625abb4faa7f3a23cdf437be80af017a279))
+
+- **attack**: Raise ATTACK_IN_PROGRESS with its details, and name FC send_anyway
+  ([#192](https://github.com/eschnitzler/EmpireCore/pull/192),
+  [`b8e7f20`](https://github.com/eschnitzler/EmpireCore/commit/b8e7f20ad086fa47e20c439ea54d06df11ec6390))
+
+- **attack**: Read attack presets in the client's shape and allow saving them
+  ([#194](https://github.com/eschnitzler/EmpireCore/pull/194),
+  [`99d0cca`](https://github.com/eschnitzler/EmpireCore/commit/99d0cca9a1a3c9dcd4710e7820a85b3411e1b5de))
+
+- **attack**: Read the spy report age and the castellan from aci like the client
+  ([#190](https://github.com/eschnitzler/EmpireCore/pull/190),
+  [`9eed1b5`](https://github.com/eschnitzler/EmpireCore/commit/9eed1b5f7f16d5920535abf56cd7c51070e6b242))
+
+- **attack**: Send adi's keys in the client's order
+  ([#191](https://github.com/eschnitzler/EmpireCore/pull/191),
+  [`5bc2157`](https://github.com/eschnitzler/EmpireCore/commit/5bc2157f74570833fb0cf2a8fdc410363289727b))
+
+- **attack**: Send attack waves and support in the client's shape
+  ([#195](https://github.com/eschnitzler/EmpireCore/pull/195),
+  [`d4f6890`](https://github.com/eschnitzler/EmpireCore/commit/d4f6890fa988ce7bdf73508cead07e3549d5d08a))
+
+- **attack**: Take the defender's legend skills from the pre-calculation
+  ([#201](https://github.com/eschnitzler/EmpireCore/pull/201),
+  [`26a10a1`](https://github.com/eschnitzler/EmpireCore/commit/26a10a1527e7bb2552d2217db67a330977e620a1))
+
+- **castle**: Log gcl kingdom entries that cannot be read
+  ([#203](https://github.com/eschnitzler/EmpireCore/pull/203),
+  [`cceab23`](https://github.com/eschnitzler/EmpireCore/commit/cceab230500fb68a81ad76566d8ef69d5ddaa59d))
+
+- **combat**: Add legend skills, support tools and extra waves to the attacker
+  ([#199](https://github.com/eschnitzler/EmpireCore/pull/199),
+  [`0fc7649`](https://github.com/eschnitzler/EmpireCore/commit/0fc7649c755f3a3c13b1b0afd0418181883d81a5))
+
+- **combat**: Apply the client's three legendary-fight rules
+  ([#197](https://github.com/eschnitzler/EmpireCore/pull/197),
+  [`de689d8`](https://github.com/eschnitzler/EmpireCore/commit/de689d85e2b38996f6db7cf3f6c62ce1a94add64))
+
+- **combat**: Count defense tools and defender legend skills in a spied defense
+  ([#201](https://github.com/eschnitzler/EmpireCore/pull/201),
+  [`26a10a1`](https://github.com/eschnitzler/EmpireCore/commit/26a10a1527e7bb2552d2217db67a330977e620a1))
+
+- **combat**: Faction camp owners, conquer control, and the owner's legend level from aci
+  ([#197](https://github.com/eschnitzler/EmpireCore/pull/197),
+  [`de689d8`](https://github.com/eschnitzler/EmpireCore/commit/de689d85e2b38996f6db7cf3f6c62ce1a94add64))
+
+- **combat**: Merge the flank bonus sources before truncating
+  ([#198](https://github.com/eschnitzler/EmpireCore/pull/198),
+  [`68aa0b4`](https://github.com/eschnitzler/EmpireCore/commit/68aa0b406fe9a2355c1db019189ff1cac868b3b2))
+
+- **combat**: Refuse raid-boss tools when their boss is not active
+  ([#200](https://github.com/eschnitzler/EmpireCore/pull/200),
+  [`17dd902`](https://github.com/eschnitzler/EmpireCore/commit/17dd902e8b09027f4ce74b4f1ae2030f1a38d7e3))
+
+- **defense**: Import Any for the dfc castellan validators
+  ([#203](https://github.com/eschnitzler/EmpireCore/pull/203),
+  [`cceab23`](https://github.com/eschnitzler/EmpireCore/commit/cceab230500fb68a81ad76566d8ef69d5ddaa59d))
+
+- **defense**: Keep a dfc reply whose castellan cannot be read
+  ([#196](https://github.com/eschnitzler/EmpireCore/pull/196),
+  [`43b768c`](https://github.com/eschnitzler/EmpireCore/commit/43b768c203f9a57ee56fd89099b45071370a31d2))
+
+- **defense**: Send the castle defense commands in the client's shape
+  ([#196](https://github.com/eschnitzler/EmpireCore/pull/196),
+  [`43b768c`](https://github.com/eschnitzler/EmpireCore/commit/43b768c203f9a57ee56fd89099b45071370a31d2))
+
+- **defense**: Type the dfc castellan and unit inventory
+  ([#196](https://github.com/eschnitzler/EmpireCore/pull/196),
+  [`43b768c`](https://github.com/eschnitzler/EmpireCore/commit/43b768c203f9a57ee56fd89099b45071370a31d2))
+
+- **map**: Read structure levels only from rows that carry them
+  ([#203](https://github.com/eschnitzler/EmpireCore/pull/203),
+  [`cceab23`](https://github.com/eschnitzler/EmpireCore/commit/cceab230500fb68a81ad76566d8ef69d5ddaa59d))
+
+- **models**: Keep owner records, map rows and leaderboards as lenient as the client
+  ([#203](https://github.com/eschnitzler/EmpireCore/pull/203),
+  [`cceab23`](https://github.com/eschnitzler/EmpireCore/commit/cceab230500fb68a81ad76566d8ef69d5ddaa59d))
+
+- **models**: Read commanders, owner records, cra and sne as leniently as the client
+  ([#203](https://github.com/eschnitzler/EmpireCore/pull/203),
+  [`cceab23`](https://github.com/eschnitzler/EmpireCore/commit/cceab230500fb68a81ad76566d8ef69d5ddaa59d))
+
+- **player**: Fold gdi's landmark lists into its castles, and find a wsp player at X/Y
+  ([#203](https://github.com/eschnitzler/EmpireCore/pull/203),
+  [`cceab23`](https://github.com/eschnitzler/EmpireCore/commit/cceab230500fb68a81ad76566d8ef69d5ddaa59d))
+
+- **ranking**: Read llsp rows as leniently as the client
+  ([#203](https://github.com/eschnitzler/EmpireCore/pull/203),
+  [`cceab23`](https://github.com/eschnitzler/EmpireCore/commit/cceab230500fb68a81ad76566d8ef69d5ddaa59d))
+
+### Documentation
+
+- **messages**: Describe bsd as the spy report it is
+  ([#203](https://github.com/eschnitzler/EmpireCore/pull/203),
+  [`cceab23`](https://github.com/eschnitzler/EmpireCore/commit/cceab230500fb68a81ad76566d8ef69d5ddaa59d))
+
+### Features
+
+- **attack**: Pre-calculate each kind of target with the command the client uses
+  ([#191](https://github.com/eschnitzler/EmpireCore/pull/191),
+  [`5bc2157`](https://github.com/eschnitzler/EmpireCore/commit/5bc2157f74570833fb0cf2a8fdc410363289727b))
+
+- **commanders**: Model a relic item's type, might and gem
+  ([#203](https://github.com/eschnitzler/EmpireCore/pull/203),
+  [`cceab23`](https://github.com/eschnitzler/EmpireCore/commit/cceab230500fb68a81ad76566d8ef69d5ddaa59d))
+
+### Refactoring
+
+- **alliance**: Type the member info, diplomacy, landmark, bookmark and search lists
+  ([#203](https://github.com/eschnitzler/EmpireCore/pull/203),
+  [`cceab23`](https://github.com/eschnitzler/EmpireCore/commit/cceab230500fb68a81ad76566d8ef69d5ddaa59d))
+
+- **attack**: Type the gaa, gui and gli blocks of a pre-calculation reply
+  ([#203](https://github.com/eschnitzler/EmpireCore/pull/203),
+  [`cceab23`](https://github.com/eschnitzler/EmpireCore/commit/cceab230500fb68a81ad76566d8ef69d5ddaa59d))
+
+- **attack**: Type the movement, owners and currencies of a cra reply
+  ([#203](https://github.com/eschnitzler/EmpireCore/pull/203),
+  [`cceab23`](https://github.com/eschnitzler/EmpireCore/commit/cceab230500fb68a81ad76566d8ef69d5ddaa59d))
+
+- **attack**: Type the spied castellan of a pre-calculation reply
+  ([#203](https://github.com/eschnitzler/EmpireCore/pull/203),
+  [`cceab23`](https://github.com/eschnitzler/EmpireCore/commit/cceab230500fb68a81ad76566d8ef69d5ddaa59d))
+
+- **attack**: Type the spy positions and area effects of a pre-calculation reply
+  ([#203](https://github.com/eschnitzler/EmpireCore/pull/203),
+  [`cceab23`](https://github.com/eschnitzler/EmpireCore/commit/cceab230500fb68a81ad76566d8ef69d5ddaa59d))
+
+- **commanders**: Type the effects, equipment and item bonuses of a commander
+  ([#203](https://github.com/eschnitzler/EmpireCore/pull/203),
+  [`cceab23`](https://github.com/eschnitzler/EmpireCore/commit/cceab230500fb68a81ad76566d8ef69d5ddaa59d))
+
+- **defense**: Type the spy positions, castellan, gui and gli of an sdi reply
+  ([#203](https://github.com/eschnitzler/EmpireCore/pull/203),
+  [`cceab23`](https://github.com/eschnitzler/EmpireCore/commit/cceab230500fb68a81ad76566d8ef69d5ddaa59d))
+
+- **gamedata**: Keep a tool's effects as the string the client splits
+  ([#203](https://github.com/eschnitzler/EmpireCore/pull/203),
+  [`cceab23`](https://github.com/eschnitzler/EmpireCore/commit/cceab230500fb68a81ad76566d8ef69d5ddaa59d))
+
+- **map**: Parse a map area's rows into items at parse time
+  ([#203](https://github.com/eschnitzler/EmpireCore/pull/203),
+  [`cceab23`](https://github.com/eschnitzler/EmpireCore/commit/cceab230500fb68a81ad76566d8ef69d5ddaa59d))
+
+- **messages**: Type the sne messages and the bsd spy report
+  ([#203](https://github.com/eschnitzler/EmpireCore/pull/203),
+  [`cceab23`](https://github.com/eschnitzler/EmpireCore/commit/cceab230500fb68a81ad76566d8ef69d5ddaa59d))
+
+- **models**: Type the crest, faction and castle lists of owner records
+  ([#203](https://github.com/eschnitzler/EmpireCore/pull/203),
+  [`cceab23`](https://github.com/eschnitzler/EmpireCore/commit/cceab230500fb68a81ad76566d8ef69d5ddaa59d))
+
+- **models**: Type the wire data models hold as raw dicts and lists
+  ([#203](https://github.com/eschnitzler/EmpireCore/pull/203),
+  [`cceab23`](https://github.com/eschnitzler/EmpireCore/commit/cceab230500fb68a81ad76566d8ef69d5ddaa59d))
+
+- **movements**: Type the area rows and the commander of a movement
+  ([#203](https://github.com/eschnitzler/EmpireCore/pull/203),
+  [`cceab23`](https://github.com/eschnitzler/EmpireCore/commit/cceab230500fb68a81ad76566d8ef69d5ddaa59d))
+
+- **player**: Type the gcl block of gdi and the gaa block of wsp
+  ([#203](https://github.com/eschnitzler/EmpireCore/pull/203),
+  [`cceab23`](https://github.com/eschnitzler/EmpireCore/commit/cceab230500fb68a81ad76566d8ef69d5ddaa59d))
+
+- **ranking**: Type the llsp leaderboard entries
+  ([#203](https://github.com/eschnitzler/EmpireCore/pull/203),
+  [`cceab23`](https://github.com/eschnitzler/EmpireCore/commit/cceab230500fb68a81ad76566d8ef69d5ddaa59d))
+
+- **skills**: Type a general's selected abilities
+  ([#203](https://github.com/eschnitzler/EmpireCore/pull/203),
+  [`cceab23`](https://github.com/eschnitzler/EmpireCore/commit/cceab230500fb68a81ad76566d8ef69d5ddaa59d))
+
+### Testing
+
+- **attack**: Give the stubbed pre-calculation its owner records
+  ([#201](https://github.com/eschnitzler/EmpireCore/pull/201),
+  [`26a10a1`](https://github.com/eschnitzler/EmpireCore/commit/26a10a1527e7bb2552d2217db67a330977e620a1))
+
+
 ## v0.38.0 (2026-09-25)
 
 ### Bug Fixes
