@@ -13,6 +13,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from empire_core.utils.enums import AllianceNotificationType
 from pydantic import ConfigDict, Field, ValidationError, field_validator, model_validator
 
 from .base import BasePayload, BaseRequest, BaseResponse, ClientInt, HelpType
@@ -665,6 +666,73 @@ class SearchAllianceResponse(BaseResponse, register=False):
         return rows
 
 
+# =============================================================================
+# ASC - Alliance Subscriber Count
+# =============================================================================
+
+
+class AllianceSubscriberCountRequest(BaseRequest):
+    """
+    Search for an alliance.
+
+    Command: asc
+    Payload: {}
+    """
+
+    command = "asc"
+
+
+class AllianceSubscriberCountResponse(BaseResponse, register=False):
+    """
+    Response to alliance subscriber count.
+
+    Command: asc
+    Payload: {"ASC": alliance_subscriber_count}
+    """
+
+    command = "asc"
+
+    alliance_subscriber_count: int = Field(alias="ASC", default=0, description="The alliance subscriber count")
+
+
+# =============================================================================
+# ALL - Alliance Activity List
+# =============================================================================
+
+
+class AllianceActivityListRequest(BaseRequest):
+    """
+    Search for an alliance.
+
+    Command: all
+    Payload: {}
+    """
+
+    command = "all"
+
+
+class AllianceActivity(BasePayload):
+    player_id: int = Field(alias="PID")
+    player_name: int = Field(alias="PN")
+    message_age: int = Field(alias="MA")
+    notification_type: AllianceNotificationType = Field(alias="A")
+    notification_values: list = Field(alias="AV", default_factory=list)
+
+
+class AllianceActivityListResponse(BaseResponse, register=False):
+    """
+    Response to alliance activity list.
+
+    Command: all
+    Payload: {"AID": alliance_id, "AL": activity_list}
+    """
+
+    command = "all"
+
+    alliance_id: int = Field(alias="AID", default=0, description="The alliance id")
+    activity_list: list[AllianceActivity] = Field(alias="AL", default_factory=list, description="List containing the alliance activity log (e.g. donated resources)")
+
+
 __all__ = [
     # Alliance Member
     "AllianceMember",
@@ -673,6 +741,7 @@ __all__ = [
     "AllianceStorage",
     "AllianceMemberInfo",
     "AllianceDiplomacyStatus",
+    "AllianceNotificationType",
     # AIN - Get Alliance Info
     "GetAllianceInfoRequest",
     "GetAllianceInfoResponse",
