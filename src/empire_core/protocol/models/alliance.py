@@ -13,8 +13,9 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from empire_core.utils.enums import AllianceNotificationType
 from pydantic import ConfigDict, Field, ValidationError, field_validator, model_validator
+
+from empire_core.utils.enums import AllianceNotificationType
 
 from .base import BasePayload, BaseRequest, BaseResponse, ClientInt, HelpType
 from .map import MapAreaItem, MapObject, parse_area_rows
@@ -730,7 +731,11 @@ class AllianceActivityListResponse(BaseResponse, register=False):
     command = "all"
 
     alliance_id: int = Field(alias="AID", default=0, description="The alliance id")
-    activity_list: list[AllianceActivity] = Field(alias="AL", default_factory=list, description="List containing the alliance activity log (e.g. donated resources)")
+    activity_list: list[AllianceActivity] = Field(
+        alias="AL",
+        default_factory=list,
+        description="List containing the alliance activity log (e.g. donated resources)",
+    )
 
 
 __all__ = [
@@ -758,6 +763,13 @@ __all__ = [
     "GetAllianceBookmarksRequest",
     "GetAllianceBookmarksResponse",
     "AllianceBookmark",
+    # ASC - Alliance Subscriber Count
+    "AllianceSubscriberCountRequest",
+    "AllianceSubscriberCountResponse",
+    # ALL - Alliance Activity List
+    "AllianceActivityListRequest",
+    "AllianceActivity",
+    "AllianceActivityListResponse",
     # Notifications
     "HelpRequestNotification",
 ]
