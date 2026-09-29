@@ -2,6 +2,138 @@
 
 <!-- version list -->
 
+## v0.40.0 (2026-09-29)
+
+### Bug Fixes
+
+- **alliance**: Decode ain text exactly as parseChatJSONMessage does
+  ([#204](https://github.com/eschnitzler/EmpireCore/pull/204),
+  [`b08d0a7`](https://github.com/eschnitzler/EmpireCore/commit/b08d0a7afe31078119ec3fe8ecaebe1056c366de))
+
+- **alliance**: Drop the duplicate SRFU/HRFU fields and read ain text as the client does
+  ([#204](https://github.com/eschnitzler/EmpireCore/pull/204),
+  [`b08d0a7`](https://github.com/eschnitzler/EmpireCore/commit/b08d0a7afe31078119ec3fe8ecaebe1056c366de))
+
+- **alliance**: Read the parseInt fields of ain as parseInt does
+  ([#204](https://github.com/eschnitzler/EmpireCore/pull/204),
+  [`b08d0a7`](https://github.com/eschnitzler/EmpireCore/commit/b08d0a7afe31078119ec3fe8ecaebe1056c366de))
+
+- **attack**: Fill from the pre-calculation's army, and join the castle before gui
+  ([#211](https://github.com/eschnitzler/EmpireCore/pull/211),
+  [`c990e47`](https://github.com/eschnitzler/EmpireCore/commit/c990e47cfddd11f9f101cad7d5af925c2605a3cc))
+
+- **attack**: Fill from the stronghold units too, and refuse to read an unjoined castle
+  ([#211](https://github.com/eschnitzler/EmpireCore/pull/211),
+  [`c990e47`](https://github.com/eschnitzler/EmpireCore/commit/c990e47cfddd11f9f101cad7d5af925c2605a3cc))
+
+- **combat**: Add the bonuses of the gems slotted in a commander's equipment
+  ([#205](https://github.com/eschnitzler/EmpireCore/pull/205),
+  [`64d43fe`](https://github.com/eschnitzler/EmpireCore/commit/64d43fe9346b2a649a26f60d3a1035484610179a))
+
+- **combat**: Count a commander's alien equipment bonuses
+  ([#206](https://github.com/eschnitzler/EmpireCore/pull/206),
+  [`6d3742e`](https://github.com/eschnitzler/EmpireCore/commit/6d3742e6c7bf6fae17cf95a5fe57ffeb17df7909))
+
+- **combat**: Count alien equipment gems and add bonuses in the client's order
+  ([#206](https://github.com/eschnitzler/EmpireCore/pull/206),
+  [`6d3742e`](https://github.com/eschnitzler/EmpireCore/commit/6d3742e6c7bf6fae17cf95a5fe57ffeb17df7909))
+
+- **combat**: Count worn items in the client's slot order, one per slot
+  ([#206](https://github.com/eschnitzler/EmpireCore/pull/206),
+  [`6d3742e`](https://github.com/eschnitzler/EmpireCore/commit/6d3742e6c7bf6fae17cf95a5fe57ffeb17df7909))
+
+- **combat**: Read the value, not the wod id, of effect types 47, 51, 168 and 214
+  ([#205](https://github.com/eschnitzler/EmpireCore/pull/205),
+  [`64d43fe`](https://github.com/eschnitzler/EmpireCore/commit/64d43fe9346b2a649a26f60d3a1035484610179a))
+
+- **combat**: Resolve commander equipment bonuses and gems as the client does
+  ([#205](https://github.com/eschnitzler/EmpireCore/pull/205),
+  [`64d43fe`](https://github.com/eschnitzler/EmpireCore/commit/64d43fe9346b2a649a26f60d3a1035484610179a))
+
+- **combat**: Resolve equipment bonus ids through the equipment effect table
+  ([#205](https://github.com/eschnitzler/EmpireCore/pull/205),
+  [`64d43fe`](https://github.com/eschnitzler/EmpireCore/commit/64d43fe9346b2a649a26f60d3a1035484610179a))
+
+- **commanders**: Keep an item whose set id or rarity is odd
+  ([#206](https://github.com/eschnitzler/EmpireCore/pull/206),
+  [`6d3742e`](https://github.com/eschnitzler/EmpireCore/commit/6d3742e6c7bf6fae17cf95a5fe57ffeb17df7909))
+
+- **gamedata**: Read equipment effect rows with the client's defaults, and describe them
+  ([#205](https://github.com/eschnitzler/EmpireCore/pull/205),
+  [`64d43fe`](https://github.com/eschnitzler/EmpireCore/commit/64d43fe9346b2a649a26f60d3a1035484610179a))
+
+- **skills**: Keep RS fractions as parse_SKL does, and describe the id list rule
+  ([#207](https://github.com/eschnitzler/EmpireCore/pull/207),
+  [`398eec2`](https://github.com/eschnitzler/EmpireCore/commit/398eec279abc198ae28aeca64da6b852ef7d4305))
+
+- **skills**: Read generals and skills as the client does, and add the general commands
+  ([#207](https://github.com/eschnitzler/EmpireCore/pull/207),
+  [`398eec2`](https://github.com/eschnitzler/EmpireCore/commit/398eec279abc198ae28aeca64da6b852ef7d4305))
+
+- **skills**: Read null skill lists as no skills, and document the general commands
+  ([#207](https://github.com/eschnitzler/EmpireCore/pull/207),
+  [`398eec2`](https://github.com/eschnitzler/EmpireCore/commit/398eec279abc198ae28aeca64da6b852ef7d4305))
+
+- **skills**: Read the general's flags, old xp and fixed level as the client does
+  ([#207](https://github.com/eschnitzler/EmpireCore/pull/207),
+  [`398eec2`](https://github.com/eschnitzler/EmpireCore/commit/398eec279abc198ae28aeca64da6b852ef7d4305))
+
+### Documentation
+
+- **alliance**: Describe every AllianceInfo field and read AID as parseInt does
+  ([#204](https://github.com/eschnitzler/EmpireCore/pull/204),
+  [`b08d0a7`](https://github.com/eschnitzler/EmpireCore/commit/b08d0a7afe31078119ec3fe8ecaebe1056c366de))
+
+- **commanders**: Describe every equipment and commander field and cite the gli classes
+  ([#206](https://github.com/eschnitzler/EmpireCore/pull/206),
+  [`6d3742e`](https://github.com/eschnitzler/EmpireCore/commit/6d3742e6c7bf6fae17cf95a5fe57ffeb17df7909))
+
+- **skills**: Describe every general and skill field and cite the gie and skl classes
+  ([#207](https://github.com/eschnitzler/EmpireCore/pull/207),
+  [`398eec2`](https://github.com/eschnitzler/EmpireCore/commit/398eec279abc198ae28aeca64da6b852ef7d4305))
+
+### Features
+
+- **commanders**: Add the arl command to rename a commander or castellan
+  ([#206](https://github.com/eschnitzler/EmpireCore/pull/206),
+  [`6d3742e`](https://github.com/eschnitzler/EmpireCore/commit/6d3742e6c7bf6fae17cf95a5fe57ffeb17df7909))
+
+- **commanders**: Keep the hero alien string, add UNIQUE_TEMPORARY and has_set
+  ([#206](https://github.com/eschnitzler/EmpireCore/pull/206),
+  [`6d3742e`](https://github.com/eschnitzler/EmpireCore/commit/6d3742e6c7bf6fae17cf95a5fe57ffeb17df7909))
+
+- **commanders**: Read LICID, AIE/TAE/GEM and a castellan's movement availability
+  ([#206](https://github.com/eschnitzler/EmpireCore/pull/206),
+  [`6d3742e`](https://github.com/eschnitzler/EmpireCore/commit/6d3742e6c7bf6fae17cf95a5fe57ffeb17df7909))
+
+- **commanders**: Read LICID, alien equipment and hero fields, and rename commanders
+  ([#206](https://github.com/eschnitzler/EmpireCore/pull/206),
+  [`6d3742e`](https://github.com/eschnitzler/EmpireCore/commit/6d3742e6c7bf6fae17cf95a5fe57ffeb17df7909))
+
+- **equipment**: Read the equipment inventory and equip or unequip items
+  ([#208](https://github.com/eschnitzler/EmpireCore/pull/208),
+  [`4de96af`](https://github.com/eschnitzler/EmpireCore/commit/4de96af7b76ae576907e9d76a1240a5d81f070ee))
+
+- **skills**: Add the commands that change generals
+  ([#207](https://github.com/eschnitzler/EmpireCore/pull/207),
+  [`398eec2`](https://github.com/eschnitzler/EmpireCore/commit/398eec279abc198ae28aeca64da6b852ef7d4305))
+
+- **skills**: Read the reset counter and the sceat skills being activated
+  ([#207](https://github.com/eschnitzler/EmpireCore/pull/207),
+  [`398eec2`](https://github.com/eschnitzler/EmpireCore/commit/398eec279abc198ae28aeca64da6b852ef7d4305))
+
+### Refactoring
+
+- **army**: Read gui as parse_GUI does ([#211](https://github.com/eschnitzler/EmpireCore/pull/211),
+  [`c990e47`](https://github.com/eschnitzler/EmpireCore/commit/c990e47cfddd11f9f101cad7d5af925c2605a3cc))
+
+### Breaking Changes
+
+- **army**: GetUnitsResponse.inventory is renamed units and, with in_production, stronghold and
+  hospital, holds {wod_id: amount} instead of [wod_id, amount] lists; the units (U) and tools (T)
+  fields are removed.
+
+
 ## v0.39.0 (2026-09-25)
 
 ### Bug Fixes
