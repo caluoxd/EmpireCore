@@ -28,6 +28,8 @@ from empire_core.protocol.models import (
     HealUnitsRequest,
     ProduceUnitsRequest,
     ProductionQueueItem,
+    SelectCastleRequest,
+    SelectCastleResponse,
     SkipHealRequest,
     UnitCount,
 )
@@ -73,10 +75,21 @@ class ArmyService(BaseService):
         """
         Get every unit inventory a castle reports.
 
+        ``gui`` answers for the castle the session is in, so the castle is joined
+        first (``jca``), as the client enters a castle before it shows its army.
+
         Returns:
             The full gui response: available, in production, stronghold, hospital
+
+        Raises:
+            CommandError: The server refused to join the castle, so ``gui`` would
+                have answered for another one
         """
-        return self.request(GetUnitsRequest(CID=castle_id), GetUnitsResponse, timeout=timeout)
+        castles = getattr(self.client.state, "get_castles", list)() or []
+        castle = next((c for c in castles if getattr(c, "id", None) == castle_id), None)
+        kingdom_id = castle.kingdom_id if castle is not None else 0
+        self.request(SelectCastleRequest(CID=castle_id, KID=kingdom_id), SelectCastleResponse, timeout=timeout)
+        return self.request(GetUnitsRequest(), GetUnitsResponse, timeout=timeout)
 
     def delete_units(self, castle_id: int, unit_id: int, count: int, timeout: float = 5.0) -> bool:
         """Delete units from inventory."""

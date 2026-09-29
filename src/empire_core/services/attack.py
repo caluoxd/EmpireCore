@@ -210,10 +210,20 @@ class _Target:
     defender_legend_skill_ids: list[int] | None = None
     area_bonuses: list[Bonus] | None = None
     conquer: bool = False
+    inventory: dict[int, int] | None = None
 
     def wants_precalculation(self) -> bool:
         """Whether the pre-calculation would answer anything still missing."""
         return any(value is None for value in (self.row, self.spy_army, self.castellan, self.area_bonuses))
+
+
+def _merged(*inventories: dict[int, int]) -> dict[int, int]:
+    """Inventories added together, as ``AUnitInventory.addAll`` adds each unit's amount."""
+    total: dict[int, int] = {}
+    for inventory in inventories:
+        for wod_id, amount in inventory.items():
+            total[wod_id] = total.get(wod_id, 0) + amount
+    return total
 
 
 @register_service("attack")
@@ -648,9 +658,14 @@ class AttackService(BaseService):
         game_data = self.client.game_data
         if game_data is None:
             raise GameDataNotLoadedError("Reading an inventory needs the items payload: call load_game_data() first")
-        units = self.client.army.get_units(castle_id=castle_id, timeout=timeout)
+        response = self.client.army.get_units_response(castle_id, timeout=timeout)
+        return self._pool(game_data, _merged(response.units, response.stronghold))
+
+    @staticmethod
+    def _pool(game_data: GameData, amounts: dict[int, int]) -> Inventory:
+        """The units and tools of a wod/amount inventory, as a pool to fill from."""
         return Inventory(
-            {u.unit_id: u.count for u in units if game_data.is_unit(u.unit_id) or game_data.is_tool(u.unit_id)}
+            {wod_id: n for wod_id, n in amounts.items() if game_data.is_unit(wod_id) or game_data.is_tool(wod_id)}
         )
 
     def _read_target(self, target: "_Target", *, castle_id: int, timeout: float) -> None:
@@ -831,6 +846,10 @@ class AttackService(BaseService):
             return
         if target.row is None:
             target.row = info.target_row() or None
+        if "unit_inventory" in getattr(info, "model_fields_set", ()):
+            # CastleAttackInfoVO.fillFromParamObject fills gui.I and gui.SHI, and the dialog's
+            # AttackDialogUnitPicker adds the stronghold units into the same inventory it fills from
+            target.inventory = _merged(info.inventory(), info.stronghold_inventory())
         if target.spy_army is None:
             target.spy_army = info.spy_army()
         if target.castellan is None:
@@ -1050,7 +1069,11 @@ class AttackService(BaseService):
         owner_id = target_owner_id if target_owner_id is not None else owner_id_from_row(target.row)
         # One inventory read for both passes: the waves deduct what they take,
         # so the courtyard draws from what they left.
-        pool = self.read_inventory(castle_id, timeout=timeout)
+        pool = (
+            self._pool(game_data, target.inventory)
+            if target.inventory is not None
+            else self.read_inventory(castle_id, timeout=timeout)
+        )
         waves = self.fill_waves(
             castle_id,
             level=target.level,

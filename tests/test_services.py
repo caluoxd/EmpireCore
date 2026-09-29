@@ -1480,14 +1480,26 @@ class TestArmyService:
         assert [(u.unit_id, u.count) for u in response.get_stronghold()] == [(646, 500)]
         assert [(u.unit_id, u.count) for u in response.get_hospital()] == [(627, 7)]
 
-    def test_get_units_merges_units_and_tools(self):
-        payload = {"U": [{"UID": 487, "C": 100}, {"UID": 488, "C": 20}], "T": [{"UID": 301, "C": 5}]}
+    def test_a_refused_join_raises_instead_of_reading_another_castle(self):
+        from empire_core.exceptions import CommandError
+
+        client = make_client({"jaa": xt_packet("jaa", error_code=21), "gui": xt_packet("gui", {"I": [[1, 1]]})})
+
+        with pytest.raises(CommandError):
+            client.army.get_units(12345)
+        assert "gui" not in [command for command, _ in conn(client).request_payloads]
+
+    def test_get_units_joins_the_castle_and_reads_i(self):
+        # parse_GUI reads I, TU, SHI and HI; U and T are not read
+        payload = {"U": [{"UID": 1, "C": 1}], "I": [[487, 100], [488, 20], [301, 5]]}
         client = make_client({"gui": xt_packet("gui", payload)})
 
         units = client.army.get_units(12345)
 
         assert [(u.unit_id, u.count) for u in units] == [(487, 100), (488, 20), (301, 5)]
-        assert conn(client).request_payloads == [("gui", {"CID": 12345})]
+        # gui names no castle (C2SGetUnitInventoryVO), so the castle is joined first
+        assert [command for command, _ in conn(client).request_payloads] == ["jaa", "gui"]
+        assert conn(client).request_payloads[-1] == ("gui", {})
 
     def test_production_queue_parses(self):
         payload = {"Q": [{"QID": 1, "UID": 487, "C": 50, "R": 20, "CT": 1712345678}]}
@@ -2907,7 +2919,7 @@ class TestFillAttack:
         # Type 2 is a camp; field 3 is the espionage age and field 6 the count.
         camp_row = [2, 700, 710, -1, 0, -1, -299]
         conn(client).script["gaa"] = xt_packet("gaa", {"AI": [camp_row], "OI": []})
-        conn(client).script["adi"] = xt_packet("adi", dict(LIVE_ADI, gaa={"AI": camp_row}))
+        conn(client).script["adi"] = xt_packet("adi", dict(LIVE_ADI, gaa={"AI": camp_row}, gui={"I": [[601, 100_000]]}))
 
         result = client.attack.fill_attack(12345, target_x=700, target_y=710, kingdom_id=0, source_x=5, source_y=6)
 
@@ -2916,10 +2928,47 @@ class TestFillAttack:
         assert sent["adi"] == {"KID": 0, "SX": 5, "SY": 6, "TX": 700, "TY": 710}
         assert result.waves
 
+    def test_the_stronghold_units_join_the_army(self):
+        # AttackDialogUnitPicker adds gui.SHI into the inventory the dialog fills from
+        client = self.build([])
+        camp_row = [2, 700, 710, -1, 0, -1, -299]
+        gui = {"I": [[601, 10]], "SHI": [[601, 100_000]]}
+        conn(client).script["adi"] = xt_packet("adi", dict(LIVE_ADI, gaa={"AI": camp_row}, gui=gui))
+
+        result = client.attack.fill_attack(12345, target_x=700, target_y=710, area_type=2)
+
+        placed = sum(
+            n
+            for wave in result.waves
+            for flank in (wave.left, wave.middle, wave.right)
+            for wod, n in flank.units
+            if wod == 601
+        )
+        assert placed > 10
+
+    def test_the_army_comes_from_the_pre_calculation(self):
+        # CastleAttackInfoVO fills the attack dialog's army from gui.I, so no gui is sent,
+        # and a map scan that moved the session off its castle does not matter
+        client = self.build([[601, 5]])
+        camp_row = [2, 700, 710, -1, 0, -1, -299]
+        conn(client).script["adi"] = xt_packet("adi", dict(LIVE_ADI, gaa={"AI": camp_row}, gui={"I": [[601, 100_000]]}))
+
+        result = client.attack.fill_attack(12345, target_x=700, target_y=710, area_type=2)
+
+        assert "gui" not in [command for command, _ in conn(client).request_payloads]
+        placed = sum(
+            n
+            for wave in result.waves
+            for flank in (wave.left, wave.middle, wave.right)
+            for wod, n in flank.units
+            if wod == 601
+        )
+        assert placed > 5
+
     def test_a_given_area_type_needs_no_scan_for_the_command(self):
         client = self.build([[601, 100_000]])
         camp_row = [2, 700, 710, -1, 0, -1, -299]
-        conn(client).script["adi"] = xt_packet("adi", dict(LIVE_ADI, gaa={"AI": camp_row}))
+        conn(client).script["adi"] = xt_packet("adi", dict(LIVE_ADI, gaa={"AI": camp_row}, gui={"I": [[601, 100_000]]}))
 
         result = client.attack.fill_attack(12345, target_x=700, target_y=710, area_type=2)
 
