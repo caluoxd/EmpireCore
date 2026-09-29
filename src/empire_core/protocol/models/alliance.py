@@ -15,7 +15,7 @@ from typing import Any
 
 from pydantic import ConfigDict, Field, ValidationError, field_validator, model_validator
 
-from .base import BasePayload, BaseRequest, BaseResponse, ClientInt, HelpType
+from .base import BasePayload, BaseRequest, BaseResponse, ClientInt, HelpType, ParseInt, parse_chat_json_message
 from .map import MapAreaItem, MapObject, parse_area_rows
 from .profile import PlayerProfileBase
 
@@ -189,36 +189,50 @@ class AllianceInfo(BasePayload):
     Client: ``AllianceInfoVO.fillFromParamObject`` (bundle line 25928)
     """
 
-    alliance_id: int = Field(alias="AID", default=0)
-    name: str = Field(alias="N", default="")
-    members: list[AllianceMember] = Field(alias="M", default_factory=list)
+    alliance_id: ParseInt = Field(alias="AID", default=0, description="Alliance id, read with parseInt")
+    name: str = Field(alias="N", default="", description="Alliance name")
+    members: list[AllianceMember] = Field(
+        alias="M",
+        default_factory=list,
+        description="Members, as AllianceInfoVO.parseMemberList (bundle line 25968) reads them",
+    )
 
     fame_points: ClientInt = Field(alias="CF", default=0, description="Alliance fame points")
     highest_fame_points: ClientInt = Field(alias="HF", default=0, description="Highest fame points reached")
-    might: ClientInt = Field(alias="MP", default=0)
-    highest_alliance_might: ClientInt = Field(alias="HAMP", default=0)
-    description: str = Field(alias="D", default="")
-    announcement: str = Field(alias="A", default="", description="The alliance's announcement")
-    language: str = Field(alias="ALL", default="en")
-    external_member_level: ClientInt = Field(alias="ML", default=0)
-    status_to_own_alliance: ClientInt = Field(
+    might: ParseInt = Field(alias="MP", default=0, description="Alliance might points")
+    highest_alliance_might: ParseInt = Field(alias="HAMP", default=0, description="Highest might points reached")
+    description: str = Field(alias="D", default="", description="The alliance's description, decoded as chat text")
+    announcement: str = Field(
+        alias="A", default=" ", description='The alliance\'s announcement; " " when it has none, as in the client'
+    )
+    language: str = Field(alias="ALL", default="en", description="The alliance's language code")
+    external_member_level: ParseInt = Field(
+        alias="ML", default=0, description="Read with parseInt as the external member level"
+    )
+    status_to_own_alliance: ParseInt = Field(
         alias="DOA",
         default=0,
         description="Diplomacy status towards the player's own alliance (AllianceConst.DIPLOMACY_*)",
     )
     is_searching_members: bool = Field(alias="IS", default=False, description="The alliance is looking for players")
     is_accepting_members: bool = Field(alias="IA", default=False, description="Players may apply to join")
-    application_count: ClientInt = Field(alias="AA", default=0, description="Pending applications")
-    auto_war: bool = Field(alias="AW", default=False)
-    aqua_points: int | float = Field(alias="AP", default=0)
-    free_renames: ClientInt = Field(alias="FR", default=0)
-    can_be_invited_to_hard_pact: bool = Field(alias="HP", default=False)
-    can_be_invited_to_soft_pact: bool = Field(alias="SP", default=False)
-    is_able_to_forge: bool = Field(alias="MF", default=False)
-    is_forge_inventory_full: bool = Field(alias="IF", default=False)
-    soft_relic_forge_uses: ClientInt = Field(alias="SRFU", default=0)
-    hard_relic_forge_uses: ClientInt = Field(alias="HRFU", default=0)
-    is_king_alliance: bool = Field(alias="KA", default=False)
+    application_count: ParseInt = Field(alias="AA", default=0, description="Pending applications")
+    auto_war: bool = Field(alias="AW", default=False, description="Auto war is on (1 == AW)")
+    aqua_points: int | float = Field(alias="AP", default=0, description="Aqua points, kept as sent")
+    free_renames: ClientInt = Field(alias="FR", default=0, description="Free alliance renames left")
+    can_be_invited_to_hard_pact: bool = Field(alias="HP", default=False, description="Open to hard pact invitations")
+    can_be_invited_to_soft_pact: bool = Field(alias="SP", default=False, description="Open to soft pact invitations")
+    is_able_to_forge: bool = Field(alias="MF", default=False, description="The alliance forge can be used")
+    is_forge_inventory_full: bool = Field(alias="IF", default=False, description="The alliance forge inventory is full")
+    soft_relic_forge_uses: ClientInt = Field(alias="SRFU", default=0, description="Soft relic forge uses")
+    hard_relic_forge_uses: ClientInt = Field(alias="HRFU", default=0, description="Hard relic forge uses")
+    is_king_alliance: bool = Field(alias="KA", default=False, description="The alliance holds the king title")
+    refresh_seconds: ClientInt = Field(
+        alias="RT",
+        default=0,
+        description="Seconds until the client asks for the alliance again, as CastleAllianceData.parseAllianceInfo "
+        "(bundle line 11609) reads it; 0 when none is set",
+    )
 
     @field_validator("is_searching_members", "is_accepting_members", mode="before")
     @classmethod
@@ -233,16 +247,33 @@ class AllianceInfo(BasePayload):
     def _one_flag(cls, value: Any) -> bool:
         return value == 1
 
+    @model_validator(mode="before")
+    @classmethod
+    def _forge_fields_come_together(cls, data: Any) -> Any:
+        # The client reads MF, IF, SRFU and HRFU only when both MF and IF are sent
+        if isinstance(data, dict) and (data.get("MF") is None or data.get("IF") is None):
+            return {k: v for k, v in data.items() if k not in ("MF", "IF", "SRFU", "HRFU")}
+        return data
+
     @field_validator("description", "announcement", mode="before")
     @classmethod
-    def _text(cls, value: Any) -> Any:
-        return "" if value is None else value
+    def _chat_text(cls, value: Any) -> Any:
+        return parse_chat_json_message(value) if isinstance(value, str) else ""
 
-    # Alliance resources
-    storage: AllianceStorage | None = Field(alias="STO", default=None)
+    @field_validator("announcement", mode="after")
+    @classmethod
+    def _empty_announcement(cls, value: str) -> str:
+        # fillFromParamObject turns an empty announcement into " "
+        return value or " "
 
-    # Alliance buildings
-    buildings: list[AllianceBuilding] = Field(alias="ABL", default_factory=list)
+    storage: AllianceStorage | None = Field(
+        alias="STO",
+        default=None,
+        description="Alliance storage, as parseStorageFromServer (bundle line 25940) reads it",
+    )
+    buildings: list[AllianceBuilding] = Field(
+        alias="ABL", default_factory=list, description="Alliance buffs, as parseBuffList (bundle line 25955) reads them"
+    )
 
     member_info: list[AllianceMemberInfo] = Field(
         alias="AMI", default_factory=list, description="Donations, activity and landmark counts per member"
@@ -265,10 +296,6 @@ class AllianceInfo(BasePayload):
     laboratories: list[MapAreaItem] = Field(
         alias="ALA", default_factory=list, description="Map rows of the alliance's laboratories (LaboratoryMapobjectVO)"
     )
-
-    # Resource usage flags
-    spend_resources_food_upgrade: int = Field(alias="SRFU", default=0)
-    help_resources_food_upgrade: int = Field(alias="HRFU", default=0)
 
     @property
     def member_count(self) -> int:

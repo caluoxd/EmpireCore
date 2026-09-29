@@ -397,6 +397,25 @@ def client_int(value: Any) -> int:
 ClientInt = Annotated[int, BeforeValidator(client_int)]
 
 
+def parse_int(value: Any) -> int:
+    """
+    JavaScript's ``parseInt``: the leading integer of the value's text, 0 where it gives NaN.
+
+    ``"12abc"`` reads as 12 and ``"1e3"`` as 1, unlike :func:`client_int`.
+    """
+    if isinstance(value, bool):
+        return 0
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return 0 if math.isnan(value) or math.isinf(value) else math.trunc(value)
+    match = re.match(r"\s*([+-]?\d+)", str(value)) if value is not None else None
+    return int(match.group(1)) if match else 0
+
+
+ParseInt = Annotated[int, BeforeValidator(parse_int)]
+
+
 class UnitCount(BaseModel):
     """A unit type and count pair."""
 
@@ -463,6 +482,22 @@ def decode_chat_text(text: str) -> str:
     return result
 
 
+def parse_chat_json_message(text: str | None) -> str:
+    """
+    Decode server text the way the client's ``parseChatJSONMessage`` does.
+
+    Replaces ``&percnt;``, ``&quot;``, ``&145;``, ``<br />`` and ``%5C`` in that
+    order and turns square brackets into spaces; nothing reads as ``""``.
+
+    Client: ``TextValide.parseChatJSONMessage`` (dll line 5820)
+    """
+    if not text:
+        return ""
+    result = text.replace("&percnt;", "%").replace("&quot;", '"').replace("&145;", "'")
+    result = result.replace("<br />", "\n").replace("%5C", "\\")
+    return result.replace("[", " ").replace("]", " ")
+
+
 __all__ = [
     # Command registry
     "GGECommand",
@@ -483,6 +518,9 @@ __all__ = [
     # Utilities
     "encode_chat_text",
     "decode_chat_text",
+    "parse_chat_json_message",
+    "parse_int",
+    "ParseInt",
     # Response registry
     "get_response_model",
     "parse_response",
