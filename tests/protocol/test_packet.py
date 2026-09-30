@@ -51,10 +51,13 @@ class TestXTParsing:
         assert packet.command_id == "gam"
 
     def test_build_xt_request_format(self):
-        # Requests use %xt%{zone}%{command}%{request_id}%{json}% — a
-        # different field layout than responses.
-        raw = Packet.build_xt("EmpireEx_21", "att", {"X": 1}, request_id=7)
-        assert raw == '%xt%EmpireEx_21%att%7%{"X": 1}%'
+        # Requests use %xt%{zone}%{command}%{room id}%{json}%, a different
+        # field layout than responses, and JSON as JSON.stringify writes it.
+        raw = Packet.build_xt("EmpireEx_21", "att", {"X": 1, "N": "ü"}, room_id=7)
+        assert raw == '%xt%EmpireEx_21%att%7%{"X":1,"N":"ü"}%'
+
+    def test_build_xt_defaults_to_no_room(self):
+        assert Packet.build_xt("EmpireEx_21", "gam", {}) == "%xt%EmpireEx_21%gam%-1%{}%"
 
 
 class TestStatusField:
@@ -194,9 +197,8 @@ class TestBatchedFrameHandling:
     """from_bytes is a single-packet parser by contract."""
 
     def test_from_bytes_swallows_a_second_packet_into_the_payload(self):
-        # Pinned deliberately: iter_from_bytes is the batch-aware entry point,
-        # and the receive loop still calls from_bytes. If this ever changes,
-        # every caller of from_bytes needs revisiting.
+        # Pinned deliberately: splitting the stream into messages happens
+        # before from_bytes. If this ever changes, every caller needs revisiting.
         frame = b'%xt%gam%1%0%{"M": []}%\x00%xt%acm%1%0%{"A": 1}%\x00'
         packet = Packet.from_bytes(frame)
         assert packet.command_id == "gam"
@@ -283,9 +285,9 @@ class TestDegradedFrameWarnings:
 
 
 class TestRoundTrip:
-    def test_to_bytes_appends_the_wire_terminator(self):
+    def test_to_bytes_has_no_null_terminator_as_the_client_sends(self):
         packet = Packet.from_bytes(b'%xt%gam%1%0%{"M": []}%')
-        assert packet.to_bytes() == b'%xt%gam%1%0%{"M": []}%\x00'
+        assert packet.to_bytes() == b'%xt%gam%1%0%{"M": []}%'
 
     def test_reparsing_to_bytes_yields_the_same_packet(self):
         original = Packet.from_bytes(b'%xt%acm%1%0%{"CM": {"MT": "100% off"}}%')
@@ -296,7 +298,7 @@ class TestRoundTrip:
         # carries the command, so from_bytes reads a request's zone as the
         # command and its request id as the status. from_bytes is for inbound
         # frames only - this pins why.
-        raw = Packet.build_xt("EmpireEx_21", "acm", {"M": "100&percnt; off"}, request_id=1)
+        raw = Packet.build_xt("EmpireEx_21", "acm", {"M": "100&percnt; off"}, room_id=1)
         packet = Packet.from_bytes(raw.encode())
         assert packet.command_id == "EmpireEx_21"
         assert packet.error_code == 1

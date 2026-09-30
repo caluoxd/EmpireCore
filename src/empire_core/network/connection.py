@@ -17,6 +17,7 @@ import websocket
 
 from empire_core.exceptions import ConnectionClosedError, EmpireTimeoutError, NetworkError, ReceiveThreadError
 from empire_core.network.framing import FrameBuffer
+from empire_core.protocol.base import NO_ROOM, build_command
 from empire_core.protocol.errors import GGEError
 from empire_core.protocol.packet import Packet
 
@@ -24,6 +25,9 @@ logger = logging.getLogger(__name__)
 
 # Commands that use XT field 4 for data instead of error codes
 NON_ERROR_COMMANDS = {"rlu", "core_pol"}
+
+# Replies whose refusals the login turns into typed errors; logged at debug only.
+LOGIN_REPLY_COMMANDS = frozenset({"lli", "vck"})
 
 # Commands whose payload carries credentials (login, registration, social
 # login). Their bodies are never logged - only the command id and frame size.
@@ -39,7 +43,7 @@ _SECRET_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
     # escaped characters (\" and \\): with a plain [^"]* a password containing
     # a double-quote would leak its tail after the json.dumps-escaped \".
     (
-        re.compile(r'("(?:PW|PWD|PASS|PASSWORD|TOKEN|SECRET|AUTH)"\s*:\s*)"(?:\\.|[^"\\])*"', re.IGNORECASE),
+        re.compile(r'("(?:PW|PWD|PASS|PASSWORD|TOKEN|SECRET|AUTH|LT|RCT)"\s*:\s*)"(?:\\.|[^"\\])*"', re.IGNORECASE),
         r'\1"<redacted>"',
     ),
     # SmartFox XML handshake: <pword><![CDATA[...]]></pword>
@@ -151,6 +155,8 @@ class Connection:
     def __init__(self, url: str, keepalive_zone: str | None = None):
         self.url = url
         self.keepalive_zone = keepalive_zone
+        # The joined room's id, which every command carries; the login sets it from joinOK.
+        self.room_id = NO_ROOM
         self.ws: websocket.WebSocket | None = None
 
         self._running = False
@@ -247,6 +253,7 @@ class Connection:
                 self.ws = ws
                 self._running = True
                 self._closing = False
+                self.room_id = NO_ROOM
                 self._last_recv_at = time.monotonic()
                 self._generation += 1
                 generation = self._generation
@@ -341,7 +348,7 @@ class Connection:
         Raises:
             NetworkError: If not connected or the send fails
         """
-        # Remove null terminator if present (we'll add it)
+        # The client sends frames without a null terminator
         if data.endswith("\x00"):
             data = data[:-1]
 
@@ -659,16 +666,11 @@ class Connection:
         """
         cmd_id = packet.command_id
 
-        # Log server errors (but exclude commands that use field 4 for data)
-        # lli 453 is login cooldown, handled as exception in client
-        if (
-            not packet.is_xml
-            and packet.error_code != 0
-            and cmd_id not in NON_ERROR_COMMANDS
-            and not (cmd_id == "lli" and packet.error_code == 453)
-        ):
+        # Log server errors (but exclude commands that use field 4 for data).
+        # The login raises its own typed errors for lli and vck refusals.
+        if not packet.is_xml and packet.error_code != 0 and cmd_id not in NON_ERROR_COMMANDS:
             error_name = GGEError.from_code(packet.error_code).name
-            if packet.error_code == 21:
+            if packet.error_code == 21 or cmd_id in LOGIN_REPLY_COMMANDS:
                 logger.debug(f"Server error: {error_name} ({packet.error_code}) for command '{cmd_id}'")
             else:
                 logger.error(f"Server error: {error_name} ({packet.error_code}) for command '{cmd_id}'")
@@ -749,7 +751,7 @@ class Connection:
                 break
 
             try:
-                self.send(f"%xt%{zone}%pin%1%<RoundHouseKick>%")
+                self.send(build_command(zone, "pin", [""], self.room_id))
                 logger.debug("Sent keepalive ping")
             except Exception as e:
                 if active():

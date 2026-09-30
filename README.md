@@ -80,6 +80,29 @@ with EmpireClient(username="your_user", password="your_pass") as client:
 Without the `with` block, call `client.close()` yourself — skipping it leaks the
 receive thread and the state executor for the life of the process.
 
+### Logging in
+
+The login runs the game client's handshake, including its version check: set
+`EmpireConfig.client_version` to the current game client's version when the
+server raises `ClientVersionError`. Pick another server from its network's
+`network.xml`; the game and network ids come from the page the game runs in:
+
+```python
+from empire_core import EmpireClient, EmpireConfig, fetch_network_instances
+
+servers = fetch_network_instances(game_id=GAME_ID, network_id=NETWORK_ID)  # ids from the game page
+config = EmpireConfig.for_instance(servers[0], client_version="1.169.11")
+
+client = EmpireClient(username="your_user", password="your_pass", config=config)
+client.login()
+# The server pushes the token just after gbd, so it is set shortly after login() returns.
+token = client.login_token  # log in later with EmpireClient(username=..., login_token=token)
+```
+
+`login(recaptcha_token=...)` sends a reCAPTCHA v3 token (or calls a function for
+one) the way the browser does. The library cannot make one; logins work without
+it today.
+
 ## Services
 
 Services are attached to the client automatically; there is nothing to wire up.
@@ -495,8 +518,8 @@ from empire_core.protocol.models import (
 )
 
 request = AllianceChatMessageRequest.create("Hello 100%!")
-packet = request.to_packet()
-# -> "%xt%EmpireEx_21%acm%1%{"M": "Hello 100&percnt;!"}%"
+packet = request.to_packet(room_id=client.connection.room_id)
+# -> "%xt%EmpireEx_21%acm%1%{"M":"Hello 100&percnt;!"}%" once the login has joined room 1
 
 client.send(request)                        # fire and forget
 response = client.send(GetCastlesRequest(), wait=True)   # or await the reply

@@ -8,6 +8,8 @@ import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from typing import Any
 
+from .base import NO_ROOM, build_command, json_text
+
 logger = logging.getLogger(__name__)
 
 # error_code used when an XT frame's status field is not an integer.
@@ -41,7 +43,7 @@ _degraded_frame_warn_at = 0.0
 # network/connection.py (which cannot be imported here: the network layer
 # already imports the protocol layer).
 _SECRET_JSON_RE = re.compile(
-    r'("(?:PW|PWD|PASS|PASSWORD|TOKEN|SECRET|AUTH)"\s*:\s*)"(?:\\.|[^"\\])*"',
+    r'("(?:PW|PWD|PASS|PASSWORD|TOKEN|SECRET|AUTH|LT|RCT)"\s*:\s*)"(?:\\.|[^"\\])*"',
     re.IGNORECASE,
 )
 _SECRET_XML_RE = re.compile(r"(<pword>).*?(</pword>)", re.IGNORECASE | re.DOTALL)
@@ -98,37 +100,37 @@ class Packet:
     payload: dict[str, Any] | list[Any] | ET.Element | None = None
 
     @staticmethod
-    def build_xt(zone: str, command: str, payload: dict[str, Any], request_id: int = 1) -> str:
+    def build_xt(zone: str, command: str, payload: dict[str, Any], room_id: int = NO_ROOM) -> str:
         """
-        Build an XT (Extended) packet string.
+        The frame for a JSON command, as :meth:`BaseRequest.to_packet` builds it.
 
         Args:
             zone: Game zone (e.g., "EmpireEx_21")
-            command: Command ID (e.g., "att", "tra", "bui")
-            payload: Dictionary payload to JSON encode
-            request_id: Request ID (default 1)
+            command: Command ID (e.g., "gam")
+            payload: The command's JSON object
+            room_id: The joined room's id (from ``joinOK``); -1 before one is joined
 
-        Returns:
-            Formatted XT packet string
+        Client: ``BasicSmartfoxClient.sendCommandVO`` (dll line 7177)
         """
-        return f"%xt%{zone}%{command}%{request_id}%{json.dumps(payload)}%"
+        return build_command(zone, command, [json_text(payload)], room_id)
 
     @classmethod
     def from_bytes(cls, data: bytes) -> "Packet":
         """
-        Parse a frame received from the server.
+        Parse one message received from the server: an XML ``<msg>`` or one ``%xt%`` command.
 
         Total by design: the receive loop has no per-packet recovery, so a
-        frame it cannot make sense of must degrade to a raw wrapper rather
+        message it cannot make sense of must degrade to a raw wrapper rather
         than raise and tear down the whole connection.
 
-        A frame carrying several null-delimited packets is *not* split here --
-        only the trailing terminator is stripped, so a batched frame parses as
-        one packet whose payload is the concatenation. Use
-        :meth:`iter_from_bytes` when the caller can handle several packets.
+        This reads a single message and strips only trailing null bytes.
+        Cutting the socket stream into messages is the network layer's job,
+        as the client does it in ``BasicSmartfoxClient.onDataReady`` (dll line
+        7211): ``<msg>`` blocks first, then the rest split on ``%xt`` once it
+        ends in ``%``.
 
         Args:
-            data: Raw frame bytes (may be truncated, padded or non-UTF-8)
+            data: Raw message bytes (may be truncated, padded or non-UTF-8)
 
         Returns:
             A Packet. Unparseable input yields a raw wrapper whose
@@ -156,35 +158,6 @@ class Packet:
         # Unknown or junk, return raw wrapper
         _warn_degraded_frame("unrecognized prefix", decoded)
         return cls(raw_data=decoded, is_xml=False)
-
-    @classmethod
-    def iter_from_bytes(cls, data: bytes) -> list["Packet"]:
-        """
-        Split a frame into its packets and parse each one.
-
-        SmartFoxServer's wire protocol is null-delimited, and a single
-        WebSocket frame may carry more than one packet. :meth:`from_bytes`
-        assumes exactly one, so a batched frame corrupts the first packet
-        (the rest of the frame is swallowed into its payload) and silently
-        drops the others. This is the total, batch-aware alternative.
-
-        Whether the live game server actually batches is unconfirmed; this
-        helper is additive, and the receive loop still calls
-        :meth:`from_bytes`. To find out, log any received frame where
-        ``data.rstrip(b"\\x00").find(b"\\x00") != -1``.
-
-        Args:
-            data: Raw frame bytes, one or more null-terminated packets
-
-        Returns:
-            One Packet per non-empty segment, in wire order. Empty and
-            null-padding frames yield an empty list.
-        """
-        if len(data) > MAX_FRAME_SIZE:
-            logger.warning(f"Dropping inbound frame: {len(data)} bytes is too large (limit {MAX_FRAME_SIZE})")
-            return []
-
-        return [cls.from_bytes(segment) for segment in data.split(b"\x00") if segment]
 
     @classmethod
     def _parse_xml(cls, data: str) -> "Packet":
@@ -273,4 +246,9 @@ class Packet:
         )
 
     def to_bytes(self) -> bytes:
-        return (self.raw_data + "\x00").encode("utf-8")
+        """
+        The frame as it goes on the wire, with no trailing null byte.
+
+        Client: ``BasicSmartfoxClient.sendCommand`` and ``sendXMLMessage`` (dll line 7199, 7203)
+        """
+        return self.raw_data.encode("utf-8")

@@ -42,7 +42,12 @@ class StubConnection:
     """
 
     def __init__(self, script: dict[str, Packet | Exception] | None = None, events: list[str] | None = None):
-        self.script = script or {}
+        self.script = {
+            "rlu": Packet.from_bytes(b"%xt%rlu%-1%1%B%A%A%Lobby%"),
+            "joinOK": Packet.from_bytes(b"<msg t='sys'><body action='joinOK' r='1'><pid id='0'/></body></msg>"),
+            **(script or {}),
+        }
+        self.room_id = -1
         self.events = events if events is not None else []
         self.connected = False
         self.sent: list[str] = []
@@ -120,6 +125,8 @@ def make_client(connection: StubConnection | None = None, state: StubState | Non
     client.config = EmpireConfig(login_timeout=0.1, request_timeout=0.1, connection_timeout=0.1)
     client.username = "tester"
     client.password = "secret"
+    client.login_token = None
+    client.session_id = "1e+300"
     client.connection = connection or StubConnection()  # type: ignore[assignment]
     client.state = state or StubState()  # type: ignore[assignment]
     client.is_logged_in = False
@@ -152,7 +159,7 @@ class TestLoginCleansUpOnFailure:
         conn = StubConnection({"apiOK": EmpireTimeoutError("no apiOK")})
         client = make_client(conn)
 
-        with pytest.raises(EmpireTimeoutError, match="Version check timed out"):
+        with pytest.raises(EmpireTimeoutError, match="API version check"):
             client.login()
 
         assert conn.disconnect_count == 1
@@ -211,7 +218,7 @@ class TestLoginCleansUpOnFailure:
         client = make_client(conn)
         client.password = None
 
-        with pytest.raises(LoginError, match="Username and password are required"):
+        with pytest.raises(LoginError, match="Username and a password or login token are required"):
             client.login()
 
         assert conn.events == []
@@ -241,20 +248,19 @@ class TestLoginCleansUpOnFailure:
 
 
 class TestLoginClientVersion:
-    """Both login steps must advertise the same client-version fingerprint."""
+    """The zone login and the version check send the build number of one configured version."""
 
-    def test_zone_login_and_xt_login_share_one_conm(self, monkeypatch):
-        # Patch the single source of truth: if the zone login hardcodes its
-        # own copy, the two steps drift apart on the next game-client bump.
-        monkeypatch.setitem(client_module.LOGIN_DEFAULTS, "CONM", 4242)
+    def test_zone_login_and_version_check_share_one_build_number(self, monkeypatch):
+        monkeypatch.setitem(client_module.LOGIN_DEFAULTS, "LANG", "de")
         conn = StubConnection()
         client = make_client(conn)
+        client.config = EmpireConfig(client_version="1.170.2", request_timeout=0.1)
 
         client.login()
 
-        assert "4242%en%0" in conn.request_data["rlu"]
-        xt_payload = json.loads(conn.request_data["lli"].split("%")[5])
-        assert xt_payload["CONM"] == 4242
+        assert "<![CDATA[1170002%de%0]]>" in conn.request_data["rlu"]
+        assert conn.request_data["vck"].split("%")[5] == "1170002"
+        assert json.loads(conn.request_data["lli"].split("%")[5])["LANG"] == "de"
 
 
 class TestOnPacketPayloadTypes:
@@ -437,3 +443,17 @@ class TestHandlerRegistryIsLocked:
         client._on_packet(xt_packet("gam", '{"M": []}'))
 
         assert calls == ["called"]
+
+
+class TestCommandsCarryTheJoinedRoom:
+    """Every command after the login goes out in joinOK's room (BasicSmartfoxClient.sendMessage, dll line 7171)."""
+
+    def test_send_uses_the_room_the_login_joined(self):
+        join_ok = Packet.from_bytes(b"<msg t='sys'><body action='joinOK' r='5'><pid id='0'/></body></msg>")
+        conn = StubConnection({"joinOK": join_ok, "rlu": Packet.from_bytes(b"%xt%rlu%-1%5%B%A%A%Lobby%")})
+        client = make_client(conn)
+        client.login()
+
+        client.send(GetPlayerInfoRequest(PID=1))
+
+        assert conn.sent[-1].startswith("%xt%EmpireEx_21%gdi%5%")
