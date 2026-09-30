@@ -302,7 +302,7 @@ a type with no level to tell them apart. Horses have no named lookup yet; use
 For autocomplete, the ids of one items version are also generated as enums:
 
 ```python
-from empire_core.gamedata import Currency, General, GeneralSkill, Unit
+from empire_core.gamedata import Building, Currency, General, GeneralSkill, Research, Tool, Unit
 
 General.TORIL                        # 101
 Currency.GXP1                        # "GXP1", the key the server uses
@@ -311,9 +311,41 @@ GeneralSkill.TORIL_ASPECTOFTHE_DRAGON_L1
 ```
 
 Units, tools, effects, effect types, currencies (`Currency` by key, `CurrencyId`
-by id), generals, general abilities and skills, legend skills, raid bosses and
-global effects each have one. Where two rows would get the same name, both carry
-their id (`GlobalEffect.SPEED_BOOST_2`, `GlobalEffect.SPEED_BOOST_11`).
+by id), generals, general abilities and skills, legend skills, raid bosses,
+global effects, buildings, researches, construction items, events, loot boxes,
+equipment groups and event difficulty types each have one. Research names start
+with the items file's own note, which is partly German, and end in group and
+level (`Research.RECRUITMENT_SPEED_G41_L1`), which keep them unique. Where two
+rows would get the same name, both carry their id (`GlobalEffect.SPEED_BOOST_2`,
+`GlobalEffect.SPEED_BOOST_11`).
+
+Members are plain ints (or strs), so they go straight into requests. Most also
+carry their row's fixed id and number columns, to filter on:
+
+```python
+Unit.MEAD_RANGER_L6.role             # "ranged"; also .level
+General.TORIL.rarity_id              # 4
+[t for t in Tool if t.category == "Defence"]
+```
+
+Stats and costs are not baked in, as balance patches change them, and nothing
+here downloads the game data. For the full row, ask the `GameData` you loaded:
+
+```python
+data = client.load_game_data()
+data.record(Unit.MEAD_RANGER_L6)     # UnitStats
+data.record(General.TORIL)           # GeneralDef
+data.record(Research.RECRUITMENT_SPEED_G41_L1)  # the items row, as a dict
+data.records([Unit.MEAD_RANGER_L6, Building.KEEP_L1])  # a list, in order
+```
+
+Where GameData models the table, `record` returns the model (`UnitStats`,
+`ToolStats`, `EffectDef`, `EffectTypeDef`, `CurrencyDef`, `GeneralDef`,
+`GeneralAbilityDef`, `GeneralSkillDef`, `LegendSkillDef`, `RaidBossDef`,
+`GlobalEffectDef`, `ConstructionItemDef`). A wall, gate or moat `Building` gives
+its `FortificationDef`; other buildings, researches, events, loot boxes,
+equipment groups and difficulty types give the items row as a dict. An id the
+data lacks gives `None`.
 
 `ITEMS_VERSION` is the items version they came from; `is_current(game_data)` says
 whether loaded data matches it, and `GameData.load()` logs a warning when it does
@@ -323,7 +355,13 @@ regenerate from a checkout after a client update:
 ```bash
 uv run python scripts/generate_gamedata_ids.py                 # downloads the current items
 uv run python scripts/generate_gamedata_ids.py --items items_v786.03.json
+uv run python scripts/generate_gamedata_ids.py --check         # exit 1 if the ids are out of date
 ```
+
+A weekly workflow (`.github/workflows/gamedata-ids.yml`) compares the live items
+version with `ITEMS_VERSION` and, when they differ, opens a pull request with
+the regenerated ids, listing every member renamed, removed or added
+(`--diff-names names.md` writes the same list locally).
 
 ## Game State
 

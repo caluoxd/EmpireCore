@@ -5,22 +5,29 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from .ids import (
         ITEMS_VERSION,
+        Building,
+        ConstructionItem,
         Currency,
         CurrencyId,
+        DifficultyType,
         Effect,
         EffectType,
+        EquipmentGroup,
+        Event,
         General,
         GeneralAbility,
         GeneralSkill,
         GlobalEffect,
         LegendSkill,
+        LootBox,
         RaidBoss,
+        Research,
         Tool,
         Unit,
         is_current,
     )
 
-from .data import CAMP_TABLES, RAW_TABLES, GameData, default_cache_dir
+from .data import CAMP_TABLES, RAW_TABLES, GameData, IdRecord, default_cache_dir
 from .models import (
     AllianceBuffDef,
     AttackSlotDef,
@@ -52,6 +59,13 @@ from .models import (
 )
 
 __all__ = [
+    "Building",
+    "ConstructionItem",
+    "DifficultyType",
+    "EquipmentGroup",
+    "Event",
+    "LootBox",
+    "Research",
     "Currency",
     "CurrencyId",
     "Effect",
@@ -86,6 +100,7 @@ __all__ = [
     "GeneralAbilityDef",
     "GeneralDef",
     "HorseStats",
+    "IdRecord",
     "LegendSkillDef",
     "NpcCampDefence",
     "RAW_TABLES",
@@ -101,17 +116,24 @@ __all__ = [
 
 _IDS = frozenset(
     {
+        "Building",
+        "ConstructionItem",
         "Currency",
         "CurrencyId",
+        "DifficultyType",
         "Effect",
         "EffectType",
+        "EquipmentGroup",
+        "Event",
         "General",
         "GeneralAbility",
         "GeneralSkill",
         "GlobalEffect",
         "ITEMS_VERSION",
         "LegendSkill",
+        "LootBox",
         "RaidBoss",
+        "Research",
         "Tool",
         "Unit",
         "is_current",
