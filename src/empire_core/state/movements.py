@@ -7,9 +7,9 @@ from collections.abc import Callable
 from typing import Any
 
 from empire_core.movements.models import MovementOwner, MovementWrapper
+from empire_core.movements.tracked import DAIMYO_TOWNSHIP_PLAYER_ID, Movement, MovementResources
 from empire_core.protocol.base import read_or_none, readable_list
 from empire_core.state.base import MovementEventCallback, StateBase
-from empire_core.state.world_models import DAIMYO_TOWNSHIP_PLAYER_ID, Movement, MovementResources
 
 logger = logging.getLogger(__name__)
 
@@ -472,7 +472,7 @@ class MovementState(StateBase):
             return [m for m in self.movements.values() if m.is_incoming and m.is_attack]
 
     def get_movement_by_id(self, movement_id: int) -> Movement | None:
-        """Get a tracked movement by its ``Movement.movement_id``, as ``client.get_movements()`` lists it."""
+        """Get a tracked movement by its ``Movement.movement_id``, as ``client.movements.get_movements()`` lists it."""
         with self._lock:
             self._advance_movements()
             return self.movements.get(movement_id)

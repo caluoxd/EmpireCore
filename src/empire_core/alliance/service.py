@@ -74,6 +74,20 @@ class AllianceService(BaseService):
     # Member Operations
     # =========================================================================
 
+    def get_alliance_info(self, alliance_id: int, timeout: float = 5.0) -> GetAllianceInfoResponse:
+        """
+        Get info about an alliance.
+
+        Args:
+            alliance_id: Your own is ``client.alliance.local_alliance_id``; another is an
+                ``AllianceSearchResult.alliance_id`` from ``client.alliance.search_alliances()``
+            timeout: Timeout in seconds
+
+        Raises:
+            CommandError / EmpireTimeoutError / ConnectionClosedError: see :meth:`EmpireClient.send`
+        """
+        return self.request(GetAllianceInfoRequest(AID=alliance_id), GetAllianceInfoResponse, timeout=timeout)
+
     def get_members(self, alliance_id: int, timeout: float = 5.0) -> list[AllianceMember]:
         """
         Get the list of alliance members from the server.
@@ -84,7 +98,7 @@ class AllianceService(BaseService):
         Args:
             alliance_id: Your own is ``client.alliance.local_alliance_id``; another
                 alliance's is ``AllianceSearchResult.alliance_id`` from :meth:`search_alliances`
-                or a player's ``client.get_player_info(player_id).alliance_id``
+                or a player's ``client.player.get_player_info(player_id).alliance_id``
             timeout: Timeout in seconds to wait for response
 
         Returns:
@@ -111,7 +125,7 @@ class AllianceService(BaseService):
         Args:
             alliance_id: Your own is ``client.alliance.local_alliance_id``; another
                 alliance's is ``AllianceSearchResult.alliance_id`` from :meth:`search_alliances`
-                or a player's ``client.get_player_info(player_id).alliance_id``
+                or a player's ``client.player.get_player_info(player_id).alliance_id``
             timeout: Timeout in seconds to wait for response
 
         Returns:

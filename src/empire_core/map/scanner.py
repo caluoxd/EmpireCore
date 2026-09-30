@@ -1,7 +1,8 @@
 import logging
 import time
 from collections import deque
-from typing import TYPE_CHECKING, NamedTuple
+from collections.abc import Iterable
+from typing import NamedTuple, Protocol
 
 from empire_core.enums import Kingdom, MapItemType
 from empire_core.exceptions import CommandError, EmpireTimeoutError, NetworkError
@@ -9,9 +10,6 @@ from empire_core.map.models.areas import GetMapAreaRequest, MapObject
 from empire_core.map.models.items import MapAreaItem
 from empire_core.protocol.errors import GGEError
 from empire_core.protocol.packet import Packet
-
-if TYPE_CHECKING:
-    from empire_core.client.client import EmpireClient
 
 logger = logging.getLogger(__name__)
 
@@ -39,13 +37,49 @@ class _ChunkResult(NamedTuple):
     has_content: bool
 
 
+class _Config(Protocol):
+    @property
+    def default_zone(self) -> str: ...
+
+
+class _Connection(Protocol):
+    @property
+    def connected(self) -> bool: ...
+
+    def request(self, data: str, cmd_id: str, timeout: float = 5.0) -> Packet: ...
+
+
+class _Castle(Protocol):
+    @property
+    def kingdom_id(self) -> Kingdom: ...
+    @property
+    def x(self) -> int: ...
+    @property
+    def y(self) -> int: ...
+
+
+class _State(Protocol):
+    def get_castles(self) -> Iterable[_Castle]: ...
+
+
+class _Client(Protocol):
+    """What the scanner uses of EmpireClient, which the map area can't import."""
+
+    @property
+    def config(self) -> _Config: ...
+    @property
+    def connection(self) -> _Connection: ...
+    @property
+    def state(self) -> _State: ...
+
+
 class MapScanner:
     """Utility class to scan kingdom maps with dynamic boundary detection."""
 
     CHUNK_SIZE = 90  # Max allowed by GGE server
     MAX_COORD = 20  # Max chunk coordinate (20 * 90 = 1800, well beyond any map)
 
-    def __init__(self, client: "EmpireClient"):
+    def __init__(self, client: _Client) -> None:
         self.client = client
 
     def _chunk_bounds(self, cx: int, cy: int) -> tuple[int, int, int, int]:
@@ -60,6 +94,28 @@ class MapScanner:
         """Send a chunk request and wait for the matching gaa response."""
         packet = request.to_packet(zone=self.client.config.default_zone)
         return self.client.connection.request(packet, "gaa", timeout=request_timeout)
+
+    def _get_kingdom_start_position(self, kingdom: Kingdom) -> tuple[int, int]:
+        """
+        Get a starting position for scanning a kingdom.
+
+        Uses the bot's own castle position in the target kingdom if available.
+        Falls back to map center (650, 650) if no castle found.
+
+        Args:
+            kingdom: The kingdom to find a starting position for
+
+        Returns:
+            (x, y) tuple for the starting position
+        """
+        if self.client.state:
+            # Find a castle in the target kingdom
+            for castle in self.client.state.get_castles():
+                if castle.kingdom_id == kingdom:
+                    return (castle.x, castle.y)
+
+        # No castle in this kingdom - use map center as fallback
+        return (650, 650)
 
     def _unscanned_chunks(self, queue: deque[tuple[int, int]], visited: set[tuple[int, int]]) -> list[tuple[int, int]]:
         """
@@ -251,7 +307,7 @@ class MapScanner:
         this much lower unless you know the server tolerates it.
         """
         # Get starting position from bot's castle
-        start_x, start_y = self.client._get_kingdom_start_position(kingdom)
+        start_x, start_y = self._get_kingdom_start_position(kingdom)
         start_cx, start_cy = start_x // self.CHUNK_SIZE, start_y // self.CHUNK_SIZE
 
         # None means castles only (type 1 = player main castles)
