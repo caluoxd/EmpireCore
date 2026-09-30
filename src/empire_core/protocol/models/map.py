@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import logging
 import warnings
-from typing import Any
+from typing import Any, cast
 
 from pydantic import ConfigDict, Field, ValidationError, ValidationInfo, field_validator
 
@@ -125,7 +125,7 @@ _RAW_LEVEL_TYPES = frozenset({MapItemType.CAPITAL, MapItemType.METROPOL})
 
 # The level of an upgradable landmark: MonumentMapobjectVO reads it at field 6,
 # LaboratoryMapobjectVO at field 5.
-_LANDMARK_LEVEL_FIELDS: dict[int, int] = {MapItemType.MONUMENT: 6, MapItemType.LABORATORY: 5}
+_LANDMARK_LEVEL_FIELDS: dict[MapItemType, int] = {MapItemType.MONUMENT: 6, MapItemType.LABORATORY: 5}
 
 INVASION_AREA_TYPES = frozenset(
     {
@@ -157,6 +157,8 @@ class MapAreaItem(BasePayload):
     - 4: Outpost
     - 22: Metropolis
     - 26: Monument
+
+    Client: ``WorldmapObjectFactory.parseWorldMapArea`` (bundle line 5343)
     """
 
     item_type: int = 0
@@ -165,8 +167,7 @@ class MapAreaItem(BasePayload):
     owner_id: int = -1
     raw_data: list[Any] = Field(
         default_factory=list,
-        description="The whole row, kept raw: past [type, x, y] its layout is whatever the parseAreaInfo "
-        "of the area type's map object reads (WorldmapObjectFactory.parseWorldMapArea, bundle line 5343)",
+        description="The whole row; past [type, x, y] its layout depends on the area type",
     )
 
     @classmethod
@@ -241,7 +242,7 @@ class MapAreaItem(BasePayload):
     @property
     def landmark_level(self) -> int | None:
         """A monument's or laboratory's level, or None for other types."""
-        index = _LANDMARK_LEVEL_FIELDS.get(self.item_type)
+        index = _LANDMARK_LEVEL_FIELDS.get(cast(MapItemType, self.item_type))
         if index is None or len(self.raw_data) <= index:
             return None
         value = self.raw_data[index]
@@ -513,9 +514,7 @@ class MapObject(BasePayload):
     remaining_relocation_time: ClientInt = Field(alias="RRD", default=0)
     storm_title_id: ClientInt = Field(alias="TI", default=-1)  # -1: no title, 50-53: ranks 1-4, 54: ranks 5-10
     remaining_noob_protection: ClientInt = Field(alias="RNP", default=0)
-    faction: OwnerFaction | None = Field(
-        alias="FN", default=None, description="Faction event standing: FID, PMS, PMT and TID"
-    )
+    faction: OwnerFaction | None = Field(alias="FN", default=None, description="Faction event standing")
 
     @field_validator("emblem", "alliance_emblem", "faction", mode="before")
     @classmethod
