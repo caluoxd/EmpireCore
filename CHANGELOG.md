@@ -2,6 +2,533 @@
 
 <!-- version list -->
 
+## v0.41.0 (2026-09-30)
+
+### Bug Fixes
+
+- **alliance**: Read the alliance chat log from CM as the client does
+  ([#235](https://github.com/eschnitzler/EmpireCore/pull/235),
+  [`c28e42e`](https://github.com/eschnitzler/EmpireCore/commit/c28e42ef087ce772cf8e3b9ef864ba6562acd0c9))
+
+- **army**: Read RUT arrays and odd gcu values as the client does, and keep bup off the hospital
+  ([#218](https://github.com/eschnitzler/EmpireCore/pull/218),
+  [`c665907`](https://github.com/eschnitzler/EmpireCore/commit/c665907d0fda08acbb30cfee3a70a403dd7957c3))
+
+- **army**: Send army and hospital commands as the client's command objects do
+  ([#218](https://github.com/eschnitzler/EmpireCore/pull/218),
+  [`c665907`](https://github.com/eschnitzler/EmpireCore/commit/c665907d0fda08acbb30cfee3a70a403dd7957c3))
+
+- **attack**: Keep cra owner records by the client's truthiness of OID
+  ([#226](https://github.com/eschnitzler/EmpireCore/pull/226),
+  [`7db5537`](https://github.com/eschnitzler/EmpireCore/commit/7db5537e3bf3881c370474bd072e034704d593ad))
+
+- **attack**: Require the commander on CreateAttackRequest
+  ([#220](https://github.com/eschnitzler/EmpireCore/pull/220),
+  [`c4d5791`](https://github.com/eschnitzler/EmpireCore/commit/c4d5791e3ad94336d467962f28381e79bafbcca5))
+
+- **castle**: Keep a listed castle without a name, and leave out quietly the rows that name no
+  castle ([#230](https://github.com/eschnitzler/EmpireCore/pull/230),
+  [`fbc8b75`](https://github.com/eschnitzler/EmpireCore/commit/fbc8b75e51547062730cc75bfb2db76c90f3de2a))
+
+- **castle,movements**: Send arc in the client's order and encoding, and gam with no castle
+  ([#215](https://github.com/eschnitzler/EmpireCore/pull/215),
+  [`aae83e4`](https://github.com/eschnitzler/EmpireCore/commit/aae83e414e44efca3f1d2c2ee2a6a9185ebef6c6))
+
+- **enums**: Drop enum members the client does not define
+  ([#223](https://github.com/eschnitzler/EmpireCore/pull/223),
+  [`37bb461`](https://github.com/eschnitzler/EmpireCore/commit/37bb4618266ca770b93e97c682353a1eb1ff2fd0))
+
+- **enums**: Make the enums match the client's constants
+  ([#223](https://github.com/eschnitzler/EmpireCore/pull/223),
+  [`37bb461`](https://github.com/eschnitzler/EmpireCore/commit/37bb4618266ca770b93e97c682353a1eb1ff2fd0))
+
+- **gamedata**: A league row without an event id matches no event
+  ([#228](https://github.com/eschnitzler/EmpireCore/pull/228),
+  [`a755b53`](https://github.com/eschnitzler/EmpireCore/commit/a755b53df62f48ce50ccd6acc9fe8ed827df4497))
+
+- **gamedata**: Give falsy values the client's default, and read the new tables with parseInt
+  ([#219](https://github.com/eschnitzler/EmpireCore/pull/219),
+  [`79957ed`](https://github.com/eschnitzler/EmpireCore/commit/79957ed0ad310f9b15dc6daeec5817ac4dad9490))
+
+- **gamedata**: Keep a cached level of 0 instead of reading it as missing
+  ([#224](https://github.com/eschnitzler/EmpireCore/pull/224),
+  [`825b77f`](https://github.com/eschnitzler/EmpireCore/commit/825b77fb57d5b0904447560b1d5a079193c8bc77))
+
+- **gamedata**: Load the default game data once, and back off after a failed load
+  ([#231](https://github.com/eschnitzler/EmpireCore/pull/231),
+  [`266e006`](https://github.com/eschnitzler/EmpireCore/commit/266e00655f28518eec18741a70032aa855854755))
+
+- **gamedata**: Load the id enums lazily, and guard the generator against the cache file
+  ([#224](https://github.com/eschnitzler/EmpireCore/pull/224),
+  [`825b77f`](https://github.com/eschnitzler/EmpireCore/commit/825b77fb57d5b0904447560b1d5a079193c8bc77))
+
+- **gamedata**: Name researches and construction items by group and level, and report name changes
+  ([#231](https://github.com/eschnitzler/EmpireCore/pull/231),
+  [`266e006`](https://github.com/eschnitzler/EmpireCore/commit/266e00655f28518eec18741a70032aa855854755))
+
+- **gamedata**: Quote generated strings the way ruff format does
+  ([#231](https://github.com/eschnitzler/EmpireCore/pull/231),
+  [`266e006`](https://github.com/eschnitzler/EmpireCore/commit/266e00655f28518eec18741a70032aa855854755))
+
+- **gamedata**: Raise a remembered load failure without its old traceback, and open the ids PR when
+  the branch is already pushed ([#231](https://github.com/eschnitzler/EmpireCore/pull/231),
+  [`266e006`](https://github.com/eschnitzler/EmpireCore/commit/266e00655f28518eec18741a70032aa855854755))
+
+- **gamedata**: Read unit and tool rows with the client's keys, types and defaults
+  ([#219](https://github.com/eschnitzler/EmpireCore/pull/219),
+  [`79957ed`](https://github.com/eschnitzler/EmpireCore/commit/79957ed0ad310f9b15dc6daeec5817ac4dad9490))
+
+- **models**: Build rst and csm as the client does
+  ([#230](https://github.com/eschnitzler/EmpireCore/pull/230),
+  [`fbc8b75`](https://github.com/eschnitzler/EmpireCore/commit/fbc8b75e51547062730cc75bfb2db76c90f3de2a))
+
+- **models**: Read each castle list row by its area type's layout
+  ([#230](https://github.com/eschnitzler/EmpireCore/pull/230),
+  [`fbc8b75`](https://github.com/eschnitzler/EmpireCore/commit/fbc8b75e51547062730cc75bfb2db76c90f3de2a))
+
+- **protocol**: Read an int too large for a JS number as none, and say where the row readers are
+  more lenient than the client ([#235](https://github.com/eschnitzler/EmpireCore/pull/235),
+  [`c28e42e`](https://github.com/eschnitzler/EmpireCore/commit/c28e42ef087ce772cf8e3b9ef864ba6562acd0c9))
+
+- **protocol**: Read the refer-a-friend flag through parseInt, and warn only on unreadable rows
+  ([#226](https://github.com/eschnitzler/EmpireCore/pull/226),
+  [`7db5537`](https://github.com/eschnitzler/EmpireCore/commit/7db5537e3bf3881c370474bd072e034704d593ad))
+
+- **ranking**: Take the highscore list types from the client, and call LID the league type id
+  ([#228](https://github.com/eschnitzler/EmpireCore/pull/228),
+  [`a755b53`](https://github.com/eschnitzler/EmpireCore/commit/a755b53df62f48ce50ccd6acc9fe8ed827df4497))
+
+- **spy**: Check a caught report's position too, and take the payment options by keyword
+  ([#236](https://github.com/eschnitzler/EmpireCore/pull/236),
+  [`a76006b`](https://github.com/eschnitzler/EmpireCore/commit/a76006bf12e0b2d78b70ce986a871e9f9ec73bdc))
+
+- **spy**: Pay for a spy mission only when asked
+  ([#236](https://github.com/eschnitzler/EmpireCore/pull/236),
+  [`a76006b`](https://github.com/eschnitzler/EmpireCore/commit/a76006bf12e0b2d78b70ce986a871e9f9ec73bdc))
+
+- **spy**: Read the csm reply's movement from A as the client does
+  ([#236](https://github.com/eschnitzler/EmpireCore/pull/236),
+  [`a76006b`](https://github.com/eschnitzler/EmpireCore/commit/a76006bf12e0b2d78b70ce986a871e9f9ec73bdc))
+
+- **spy**: Wait for this mission's own report, and name the paid options as the other senders do
+  ([#236](https://github.com/eschnitzler/EmpireCore/pull/236),
+  [`a76006b`](https://github.com/eschnitzler/EmpireCore/commit/a76006bf12e0b2d78b70ce986a871e9f9ec73bdc))
+
+- **spy,defense**: Fix what a live run of the stack found
+  ([#236](https://github.com/eschnitzler/EmpireCore/pull/236),
+  [`a76006b`](https://github.com/eschnitzler/EmpireCore/commit/a76006bf12e0b2d78b70ce986a871e9f9ec73bdc))
+
+- **types**: Key the camp offset and landmark level tables by their enums
+  ([#225](https://github.com/eschnitzler/EmpireCore/pull/225),
+  [`47deee9`](https://github.com/eschnitzler/EmpireCore/commit/47deee9d5d89056303159825041639de8737d3ef))
+
+### Build System
+
+- **release**: List every breaking change in the changelog and release notes
+  ([#232](https://github.com/eschnitzler/EmpireCore/pull/232),
+  [`510c220`](https://github.com/eschnitzler/EmpireCore/commit/510c2200a92584660a75b8415aaf21a69865be98))
+
+### Documentation
+
+- Describe the research names and the name-change list
+  ([#231](https://github.com/eschnitzler/EmpireCore/pull/231),
+  [`266e006`](https://github.com/eschnitzler/EmpireCore/commit/266e00655f28518eec18741a70032aa855854755))
+
+- Keep client references out of Flank's summary and spy_type's description
+  ([#223](https://github.com/eschnitzler/EmpireCore/pull/223),
+  [`37bb461`](https://github.com/eschnitzler/EmpireCore/commit/37bb4618266ca770b93e97c682353a1eb1ff2fd0))
+
+- Name where every runtime id input comes from, and require the attack commander
+  ([#220](https://github.com/eschnitzler/EmpireCore/pull/220),
+  [`c4d5791`](https://github.com/eschnitzler/EmpireCore/commit/c4d5791e3ad94336d467962f28381e79bafbcca5))
+
+- **gamedata**: Say which columns the id enum members keep, and that GameData keeps the raw rows of
+  the id tables ([#231](https://github.com/eschnitzler/EmpireCore/pull/231),
+  [`266e006`](https://github.com/eschnitzler/EmpireCore/commit/266e00655f28518eec18741a70032aa855854755))
+
+- **gamedata**: Show GameData.record in the GameData docstring and the README imports
+  ([#231](https://github.com/eschnitzler/EmpireCore/pull/231),
+  [`266e006`](https://github.com/eschnitzler/EmpireCore/commit/266e00655f28518eec18741a70032aa855854755))
+
+- **models**: Describe where each request's runtime ids come from
+  ([#220](https://github.com/eschnitzler/EmpireCore/pull/220),
+  [`c4d5791`](https://github.com/eschnitzler/EmpireCore/commit/c4d5791e3ad94336d467962f28381e79bafbcca5))
+
+- **models**: Keep field descriptions to what each field is
+  ([#225](https://github.com/eschnitzler/EmpireCore/pull/225),
+  [`47deee9`](https://github.com/eschnitzler/EmpireCore/commit/47deee9d5d89056303159825041639de8737d3ef))
+
+- **models**: Say where castle resources come from, and point building ids at BuildResponse
+  ([#225](https://github.com/eschnitzler/EmpireCore/pull/225),
+  [`47deee9`](https://github.com/eschnitzler/EmpireCore/commit/47deee9d5d89056303159825041639de8737d3ef))
+
+- **ranking**: Say llsp's LID is the event's league, or -1
+  ([#236](https://github.com/eschnitzler/EmpireCore/pull/236),
+  [`a76006b`](https://github.com/eschnitzler/EmpireCore/commit/a76006bf12e0b2d78b70ce986a871e9f9ec73bdc))
+
+- **ranking,alliance**: Say llsp pages event leaderboards and that the server answers acl
+  ([#236](https://github.com/eschnitzler/EmpireCore/pull/236),
+  [`a76006b`](https://github.com/eschnitzler/EmpireCore/commit/a76006bf12e0b2d78b70ce986a871e9f9ec73bdc))
+
+- **services**: Name the call that returns each runtime id a method takes
+  ([#220](https://github.com/eschnitzler/EmpireCore/pull/220),
+  [`c4d5791`](https://github.com/eschnitzler/EmpireCore/commit/c4d5791e3ad94336d467962f28381e79bafbcca5))
+
+### Features
+
+- **defense**: Read your own castle's defense with dfc, and name sdi for support
+  ([#236](https://github.com/eschnitzler/EmpireCore/pull/236),
+  [`a76006b`](https://github.com/eschnitzler/EmpireCore/commit/a76006bf12e0b2d78b70ce986a871e9f9ec73bdc))
+
+- **enums**: Add Flank.REINFORCEMENT_SUMMARY and cite the client's constants
+  ([#223](https://github.com/eschnitzler/EmpireCore/pull/223),
+  [`37bb461`](https://github.com/eschnitzler/EmpireCore/commit/37bb4618266ca770b93e97c682353a1eb1ff2fd0))
+
+- **enums**: Type attack, spy, castle and map inputs with the client's constants
+  ([#216](https://github.com/eschnitzler/EmpireCore/pull/216),
+  [`675b87f`](https://github.com/eschnitzler/EmpireCore/commit/675b87ffa5c274a1945339094ddc2713892658da))
+
+- **enums**: Type finite inputs with the client's constants
+  ([#216](https://github.com/eschnitzler/EmpireCore/pull/216),
+  [`675b87f`](https://github.com/eschnitzler/EmpireCore/commit/675b87ffa5c274a1945339094ddc2713892658da))
+
+- **gamedata**: Carry each id's fixed data and link it to the loaded game data
+  ([#231](https://github.com/eschnitzler/EmpireCore/pull/231),
+  [`266e006`](https://github.com/eschnitzler/EmpireCore/commit/266e00655f28518eec18741a70032aa855854755))
+
+- **gamedata**: Generate enums for buildings, researches, construction items, events and more
+  ([#231](https://github.com/eschnitzler/EmpireCore/pull/231),
+  [`266e006`](https://github.com/eschnitzler/EmpireCore/commit/266e00655f28518eec18741a70032aa855854755))
+
+- **gamedata**: Generate id enums from the items data
+  ([#224](https://github.com/eschnitzler/EmpireCore/pull/224),
+  [`825b77f`](https://github.com/eschnitzler/EmpireCore/commit/825b77fb57d5b0904447560b1d5a079193c8bc77))
+
+- **gamedata**: Give the id enums their rows' fixed data, and look full records up on GameData
+  ([#231](https://github.com/eschnitzler/EmpireCore/pull/231),
+  [`266e006`](https://github.com/eschnitzler/EmpireCore/commit/266e00655f28518eec18741a70032aa855854755))
+
+- **gamedata**: Look up game-data rows by their unique keys
+  ([#217](https://github.com/eschnitzler/EmpireCore/pull/217),
+  [`90fe2d3`](https://github.com/eschnitzler/EmpireCore/commit/90fe2d37bf0341566cb812412c735a8c5c748419))
+
+### Refactoring
+
+- Consolidate duplicated helpers ([#226](https://github.com/eschnitzler/EmpireCore/pull/226),
+  [`7db5537`](https://github.com/eschnitzler/EmpireCore/commit/7db5537e3bf3881c370474bd072e034704d593ad))
+
+- Import models from their area packages and move the enums up
+  ([#233](https://github.com/eschnitzler/EmpireCore/pull/233),
+  [`0c4ad8f`](https://github.com/eschnitzler/EmpireCore/commit/0c4ad8f0451131e033015055b7d8f050fb4e1d9f))
+
+- Merge the commander services into commanders.service
+  ([#233](https://github.com/eschnitzler/EmpireCore/pull/233),
+  [`0c4ad8f`](https://github.com/eschnitzler/EmpireCore/commit/0c4ad8f0451131e033015055b7d8f050fb4e1d9f))
+
+- Move models and services into per-area packages (renames only)
+  ([#233](https://github.com/eschnitzler/EmpireCore/pull/233),
+  [`0c4ad8f`](https://github.com/eschnitzler/EmpireCore/commit/0c4ad8f0451131e033015055b7d8f050fb4e1d9f))
+
+- Move the owner records from movements to map.models.owners
+  ([#233](https://github.com/eschnitzler/EmpireCore/pull/233),
+  [`0c4ad8f`](https://github.com/eschnitzler/EmpireCore/commit/0c4ad8f0451131e033015055b7d8f050fb4e1d9f))
+
+- Name currency 1 and 2 coins and rubies
+  ([#227](https://github.com/eschnitzler/EmpireCore/pull/227),
+  [`e1a20f3`](https://github.com/eschnitzler/EmpireCore/commit/e1a20f386c2648537f3e65507bae44799a3c3c32))
+
+- Organise the library by game area ([#233](https://github.com/eschnitzler/EmpireCore/pull/233),
+  [`0c4ad8f`](https://github.com/eschnitzler/EmpireCore/commit/0c4ad8f0451131e033015055b7d8f050fb4e1d9f))
+
+- Split the alliance models into info, help and search
+  ([#233](https://github.com/eschnitzler/EmpireCore/pull/233),
+  [`0c4ad8f`](https://github.com/eschnitzler/EmpireCore/commit/0c4ad8f0451131e033015055b7d8f050fb4e1d9f))
+
+- Split the army models into units, production and hospital
+  ([#233](https://github.com/eschnitzler/EmpireCore/pull/233),
+  [`0c4ad8f`](https://github.com/eschnitzler/EmpireCore/commit/0c4ad8f0451131e033015055b7d8f050fb4e1d9f))
+
+- Split the attack models by command group, waves to army, spy commands to spy
+  ([#233](https://github.com/eschnitzler/EmpireCore/pull/233),
+  [`0c4ad8f`](https://github.com/eschnitzler/EmpireCore/commit/0c4ad8f0451131e033015055b7d8f050fb4e1d9f))
+
+- Split the castle models into castles, details and actions
+  ([#233](https://github.com/eschnitzler/EmpireCore/pull/233),
+  [`0c4ad8f`](https://github.com/eschnitzler/EmpireCore/commit/0c4ad8f0451131e033015055b7d8f050fb4e1d9f))
+
+- Split the equipment models out of the commander roster
+  ([#233](https://github.com/eschnitzler/EmpireCore/pull/233),
+  [`0c4ad8f`](https://github.com/eschnitzler/EmpireCore/commit/0c4ad8f0451131e033015055b7d8f050fb4e1d9f))
+
+- Split the map models into items and areas
+  ([#233](https://github.com/eschnitzler/EmpireCore/pull/233),
+  [`0c4ad8f`](https://github.com/eschnitzler/EmpireCore/commit/0c4ad8f0451131e033015055b7d8f050fb4e1d9f))
+
+- Take Kingdom, not Kingdom | int, and build the touched models to spec
+  ([#230](https://github.com/eschnitzler/EmpireCore/pull/230),
+  [`fbc8b75`](https://github.com/eschnitzler/EmpireCore/commit/fbc8b75e51547062730cc75bfb2db76c90f3de2a))
+
+- **alliance**: Drop the chat helpers that duplicate AllianceService
+  ([#234](https://github.com/eschnitzler/EmpireCore/pull/234),
+  [`8f0bd0a`](https://github.com/eschnitzler/EmpireCore/commit/8f0bd0ac51a4901cd9a6923742a5115c7f7a2ee4))
+
+- **castle**: Type the jca and arc kingdom and area type inputs, and describe jca
+  ([#216](https://github.com/eschnitzler/EmpireCore/pull/216),
+  [`675b87f`](https://github.com/eschnitzler/EmpireCore/commit/675b87ffa5c274a1945339094ddc2713892658da))
+
+- **client**: Reach the area helpers through their services
+  ([#234](https://github.com/eschnitzler/EmpireCore/pull/234),
+  [`8f0bd0a`](https://github.com/eschnitzler/EmpireCore/commit/8f0bd0ac51a4901cd9a6923742a5115c7f7a2ee4))
+
+- **combat**: Name effect types with CombatEffectType
+  ([#223](https://github.com/eschnitzler/EmpireCore/pull/223),
+  [`37bb461`](https://github.com/eschnitzler/EmpireCore/commit/37bb4618266ca770b93e97c682353a1eb1ff2fd0))
+
+- **enums**: Keep every enum in the utils.enums package
+  ([#222](https://github.com/eschnitzler/EmpireCore/pull/222),
+  [`af04c1d`](https://github.com/eschnitzler/EmpireCore/commit/af04c1d3ed9a6de4636fb7b66eca84b3605d062d))
+
+- **enums**: One enum per id space, with WearerType as the client has it
+  ([#216](https://github.com/eschnitzler/EmpireCore/pull/216),
+  [`675b87f`](https://github.com/eschnitzler/EmpireCore/commit/675b87ffa5c274a1945339094ddc2713892658da))
+
+- **enums**: Spell members as the client does where only the spelling differed
+  ([#223](https://github.com/eschnitzler/EmpireCore/pull/223),
+  [`37bb461`](https://github.com/eschnitzler/EmpireCore/commit/37bb4618266ca770b93e97c682353a1eb1ff2fd0))
+
+- **gamedata**: Drop the implicit game data behind the id enums, and look records up on GameData
+  ([#231](https://github.com/eschnitzler/EmpireCore/pull/231),
+  [`266e006`](https://github.com/eschnitzler/EmpireCore/commit/266e00655f28518eec18741a70032aa855854755))
+
+- **map**: Type the client the map scanner uses
+  ([#234](https://github.com/eschnitzler/EmpireCore/pull/234),
+  [`8f0bd0a`](https://github.com/eschnitzler/EmpireCore/commit/8f0bd0ac51a4901cd9a6923742a5115c7f7a2ee4))
+
+- **models**: Compare with enums instead of raw ids and labels
+  ([#223](https://github.com/eschnitzler/EmpireCore/pull/223),
+  [`37bb461`](https://github.com/eschnitzler/EmpireCore/commit/37bb4618266ca770b93e97c682353a1eb1ff2fd0))
+
+- **models**: Drop the hand-written location type names
+  ([#230](https://github.com/eschnitzler/EmpireCore/pull/230),
+  [`fbc8b75`](https://github.com/eschnitzler/EmpireCore/commit/fbc8b75e51547062730cc75bfb2db76c90f3de2a))
+
+- **models**: Share the gcu model, type the army replies with it, and drop ProductionListType
+  ([#218](https://github.com/eschnitzler/EmpireCore/pull/218),
+  [`c665907`](https://github.com/eschnitzler/EmpireCore/commit/c665907d0fda08acbb30cfee3a70a403dd7957c3))
+
+- **models**: Skip unreadable rows and blocks with one set of helpers
+  ([#226](https://github.com/eschnitzler/EmpireCore/pull/226),
+  [`7db5537`](https://github.com/eschnitzler/EmpireCore/commit/7db5537e3bf3881c370474bd072e034704d593ad))
+
+- **movements**: Move the tracked Movement into the movements area
+  ([#234](https://github.com/eschnitzler/EmpireCore/pull/234),
+  [`8f0bd0a`](https://github.com/eschnitzler/EmpireCore/commit/8f0bd0ac51a4901cd9a6923742a5115c7f7a2ee4))
+
+- **protocol**: Encode and decode text only as the client does
+  ([#226](https://github.com/eschnitzler/EmpireCore/pull/226),
+  [`7db5537`](https://github.com/eschnitzler/EmpireCore/commit/7db5537e3bf3881c370474bd072e034704d593ad))
+
+- **protocol**: Keep the client's JavaScript conversions in one module
+  ([#226](https://github.com/eschnitzler/EmpireCore/pull/226),
+  [`7db5537`](https://github.com/eschnitzler/EmpireCore/commit/7db5537e3bf3881c370474bd072e034704d593ad))
+
+- **services**: Look an own castle up in the state in one place
+  ([#226](https://github.com/eschnitzler/EmpireCore/pull/226),
+  [`7db5537`](https://github.com/eschnitzler/EmpireCore/commit/7db5537e3bf3881c370474bd072e034704d593ad))
+
+- **types**: Take Kingdom, not Kingdom | int
+  ([#230](https://github.com/eschnitzler/EmpireCore/pull/230),
+  [`fbc8b75`](https://github.com/eschnitzler/EmpireCore/commit/fbc8b75e51547062730cc75bfb2db76c90f3de2a))
+
+### Testing
+
+- Enforce the area layering, and point the docs at the new layout
+  ([#233](https://github.com/eschnitzler/EmpireCore/pull/233),
+  [`0c4ad8f`](https://github.com/eschnitzler/EmpireCore/commit/0c4ad8f0451131e033015055b7d8f050fb4e1d9f))
+
+- Forget the default game data after every test
+  ([#231](https://github.com/eschnitzler/EmpireCore/pull/231),
+  [`266e006`](https://github.com/eschnitzler/EmpireCore/commit/266e00655f28518eec18741a70032aa855854755))
+
+- Mirror the area packages in the test tree
+  ([#233](https://github.com/eschnitzler/EmpireCore/pull/233),
+  [`0c4ad8f`](https://github.com/eschnitzler/EmpireCore/commit/0c4ad8f0451131e033015055b7d8f050fb4e1d9f))
+
+- **attack**: Give the cra enum test its commander so it can fail
+  ([#220](https://github.com/eschnitzler/EmpireCore/pull/220),
+  [`c4d5791`](https://github.com/eschnitzler/EmpireCore/commit/c4d5791e3ad94336d467962f28381e79bafbcca5))
+
+- **gamedata**: Keep CombatEffectType's ids within the generated EffectType
+  ([#224](https://github.com/eschnitzler/EmpireCore/pull/224),
+  [`825b77f`](https://github.com/eschnitzler/EmpireCore/commit/825b77fb57d5b0904447560b1d5a079193c8bc77))
+
+- **gamedata**: Read row models out of generic annotations on Python 3.10
+  ([#217](https://github.com/eschnitzler/EmpireCore/pull/217),
+  [`90fe2d3`](https://github.com/eschnitzler/EmpireCore/commit/90fe2d37bf0341566cb812412c735a8c5c748419))
+
+- **map**: Watch the map areas logger that reports skipped area rows
+  ([#233](https://github.com/eschnitzler/EmpireCore/pull/233),
+  [`0c4ad8f`](https://github.com/eschnitzler/EmpireCore/commit/0c4ad8f0451131e033015055b7d8f050fb4e1d9f))
+
+- **spy**: Make the owner record's level, might, achievement points and crest colours up
+  ([#236](https://github.com/eschnitzler/EmpireCore/pull/236),
+  [`a76006b`](https://github.com/eschnitzler/EmpireCore/commit/a76006bf12e0b2d78b70ce986a871e9f9ec73bdc))
+
+- **state**: Name the no-gcu test after coins and rubies
+  ([#227](https://github.com/eschnitzler/EmpireCore/pull/227),
+  [`e1a20f3`](https://github.com/eschnitzler/EmpireCore/commit/e1a20f386c2648537f3e65507bae44799a3c3c32))
+
+### Breaking Changes
+
+- Deep module paths moved. Import from empire_core, empire_core.protocol.models or the area packages
+  instead. Removed paths, with where their contents live after this series:
+
+- Renamed public names: AutoSkipCooldownType.C2 -> AutoSkipCooldownType.RUBIES;
+  UnitStats.healing_cost_c1 -> healing_cost_coins; UnitStats.healing_cost_c2 -> healing_cost_rubies;
+  AttackSlotDef.cost_c2 -> cost_rubies; FillOptions.allow_c1_cost -> allow_coin_cost;
+  FillOptions.allow_c2_cost -> allow_ruby_cost; CurrencyTotals.gold -> coins; Player.gold -> coins;
+  PlayerSnapshot.gold -> coins (sqlite column player_snapshots.gold -> coins);
+  AllianceMemberInfo.given_c1 -> given_coins; AllianceMemberInfo.given_c2 -> given_rubies;
+  AllianceStorage.coins1 -> coins, coins2 -> rubies, food -> oil, gold -> glass, coins -> coal;
+  GGEError.NOT_ENOUGH_CURRENCY1 -> NOT_ENOUGH_COINS; GGEError.NOT_ENOUGH_CURRENCY2 ->
+  NOT_ENOUGH_RUBIES; GGEError.ALLI_NOT_ENOUGH_C1 -> ALLI_NOT_ENOUGH_COINS;
+  GGEError.ALLI_NOT_ENOUGH_C2 -> ALLI_NOT_ENOUGH_RUBIES; GGEError.WRONG_AMOUNT_OF_BOUGHT_C2 ->
+  WRONG_AMOUNT_OF_BOUGHT_RUBIES; GGEError.C2_CONFIRMATION_REQUIRED -> RUBY_CONFIRMATION_REQUIRED
+
+- **alliance**: ChatLogEntry is removed; AllianceChatLogResponse.chat_log and
+  AllianceService.get_chat_log now hold ChatMessageData, which has no timestamp field (use
+  age_seconds). chat_log reads the "CM" key, not "CL". ChatMessageData's PID, PN and MT are no
+  longer required: missing ones read as 0 and "".
+
+- **army**: Army request fields and service signatures follow the client. Renamed:
+  DeleteUnitsRequest/Response -> DismissUnitsRequest/Response, DeleteWoundedRequest/Response ->
+  DismissWoundedRequest/Response, GetProductionQueueRequest/Response ->
+  GetProductionListRequest/Response, ProductionQueueItem -> ProductionSlot (plus
+  CurrentProductionSlot and HospitalSlot), DoubleProductionRequest/Response ->
+  DoubleProductionSlotRequest/Response, ArmyService.delete_units -> dismiss_units,
+  get_production_queue -> get_production_list, skip_heal_time -> skip_heal. New: ProductionListId,
+  SlotType, DismissManyWoundedRequest, WoundedUnits, AddedUnit, ProductionList, BUY_UNIT_PACKAGE_SK,
+  ArmyService.dismiss_wounded_units. produce_units, get_production_list, cancel_production and
+  double_production_slot take a ProductionListId (and slot type and position) instead of building
+  and queue ids; unit methods take wod_id/amount; cancel_heal and skip_heal take a slot position;
+  heal_all takes ruby_cost and returns bool instead of an invented healed count. The old reply
+  fields (QID, CT, RS, UH, Q) are gone.
+
+- **attack**: CreateAttackRequest.commander_id (LID) has no default.
+
+- **castle**: RenameCastleRequest.kingdom_id takes Kingdom | int and castle_type MapItemType | int.
+
+- **castle,movements**: GetMovementsRequest has no castle_id. RenameCastleRequest sends its keys in
+  the client's order and encodes the name.
+
+- **client**: The game-area helpers are no longer EmpireClient methods. Old -> new:
+
+- **combat**: The effect type constants ATTACK_BONUS_UNIT_TYPE, UNLOCK_ABILITY_EFFECT_TYPE
+  (combat.bonuses), TOOL_DEFENSE_BONUS_TYPE, DEFENDER_WALL_BONUS_TYPE, DEFENDER_GATE_BONUS_TYPE,
+  DEFENDER_MOAT_BONUS_TYPE, DEFENSE_BONUS_TYPE, DEFENSE_BOOST_YARD_TYPE, DEFENSE_BOOST_FRONT_TYPE,
+  DEFENSE_BOOST_FLANK_TYPE (combat.defense), MELEE_DEFENSE_MALUS_TYPE and RANGE_DEFENSE_MALUS_TYPE
+  (combat.tools, also exported from empire_core.combat) are gone; use the CombatEffectType members
+  of the same ids.
+
+- **defense**: DefenseService.get_castle_defense is renamed get_support_defense_info.
+
+- **enums**: MapItemType.METRO, ABG_RESOURCE_TOWER and ABG_TOWER, AttackType.KINGS_TOWER_CONQUER and
+  CombatEffectType.REINFORCEMENT_BONUS and REINFORCEMENT_BOOST are renamed as above.
+
+- **enums**: MapItemType.ROBBER_BARON, EXTERNAL_KINGDOM, KHAN_CAMP and KHAN_TENT are gone; use
+  DUNGEON, KINGDOM_CASTLE and ALLIANCE_NOMAD_CAMP. MovementType.UNKNOWN is gone, and
+  Movement.movement_type_enum returns MovementType | None.
+
+- **enums**: MapObjectType and KingdomType are removed (use MapItemType and Kingdom), as are the
+  MapObjectType is_player/is_npc/is_event/is_resource groupings and its UNKNOWN member;
+  Movement.target_type_enum returns MapItemType | None. ISLAND_KINGDOM_ID is removed (use
+  Kingdom.STORM). WearerType.ALL is removed in favour of WearerType.UNDEFINED (-1), and
+  Equipment.wearer_type defaults to -1 instead of 0.
+
+- **enums**: Send_attack's attack_type and loot_priority, and get_attack_info's area_type, are now
+  enums; CreateAttackRequest's ATT, LP and ASCT and SendSpyRequest's ST reject values the client
+  does not define, and kingdom inputs are typed Kingdom | int.
+
+- **enums**: The enums are no longer importable from their old modules:
+
+- **gamedata**: UnitStats.level defaults to -1 instead of 0, so a row without a level no longer
+  matches unit(type, 0) or tool(type, 0); pass level=-1 for those. ToolStats.category defaults to
+  "0" instead of "". ToolStats.tool_category is lowercased ("basic", not "Basic").
+  UnitStats.loot_value and the ToolStats raw_*_bonus fields are int, not float.
+  UnitStats.might_value, ToolStats.delete_after_battle and ToolStats.is_consumed_in_battle are
+  removed. ToolStats.allowed_targets is typed tuple[tuple[int | None, int | None], ...].
+
+- **models**: CurrencyTotals is imported from protocol.models.base (still re-exported from
+  protocol.models); the army replies' currencies are CurrencyTotals instead of dicts;
+  ProductionListType is removed, use ProductionListId.
+
+- **models**: Gcl entries in a block whose KID is not a Kingdom are dropped from GetCastlesResponse
+  and state.castles. PlayerCastle.from_list raises ValueError (ValidationError for a field of the
+  wrong type) on a short row, an area type a castle list does not hold or bad field types, where it
+  used to return an object; its location_id and name are None for a faction capital, which has no
+  CastleInfo. PlayerCastle.capturer_id, CastleInfo.occupier_id and get_location_captures now include
+  main and kingdom castles, and count occupier 0. CastleInfo and PlayerCastle level fields are int |
+  None (None for landmarks) and castle rows' levels are floored as the client does.
+  RenameCastleRequest.castle_type no longer takes an int outside MapItemType.
+
+- **models**: LOCATION_TYPES, get_location_type_name, PlayerCastle.castle_type_name and
+  LocationCapture.location_type_name are removed; use MapItemType(...).name. castle_type and
+  location_type are MapItemType, and CastleInfo.occupier_id of a castle or kingdom castle is read
+  from its row instead of always being -1.
+
+- **models**: RelocateCastleRequest takes PX and PY only (castle_id, kingdom_id and the X/Y aliases
+  are gone), SendSpyRequest.sd is renamed slowdown, and csm is sent in the client's key order.
+
+- **models**: RelocateCastleRequest.kingdom_id is typed Kingdom | int and defaults to Kingdom.GREEN.
+
+- **movements**: Empire_core.state.world_models is now empire_core.movements.tracked, and its logger
+  is empire_core.movements.tracked. empire_core.Movement and empire_core.MovementResources are
+  unchanged.
+
+- **protocol**: Client_int, ClientInt, parse_int and ParseInt are no longer in
+  empire_core.protocol.models.base. Import them from empire_core.protocol.js; client_int is now
+  js_int and parse_int is js_parse_int_or_zero.
+
+- **protocol**: Encode_chat_text and decode_chat_text are removed from empire_core,
+  empire_core.protocol.models and its base and chat modules. Use encode_json_text and
+  decode_json_text from empire_core (or empire_core.protocol.text). smartfox_json_text and
+  parse_chat_json_message are no longer in empire_core.protocol.models.base.
+
+- **ranking**: RankingType members renamed: ACHIEVEMENTS -> PLAYER_ACHIEVEMENT_POINTS, PLAYER_MIGHT
+  -> PLAYER_MIGHT_POINTS, LEGEND_LEVEL -> PLAYER_LEGEND, ALLIANCE_MIGHT -> ALLIANCE_MIGHT_POINTS,
+  DOMINION_POINTS -> ALLIANCE_LANDMARKS, CARGO_POINTS -> ALLIANCE_AQUA_POINTS. Removed, as the
+  client has no such list at those values: FOREIGN_INVASION=71 (use ALIEN_INVASION,
+  ALLIANCE_ALIEN_INVASION_PLAYER or ALLIANCE_ALIEN_INVASION_ALLIANCE), BLOODCROWS=72 (use
+  ALLIANCE_RED_ALIEN_INVASION_PLAYER or ALLIANCE_RED_ALIEN_INVASION_ALLIANCE), SAMURAI=80 (use
+  SAMURAI_PLAYER or SAMURAI_ALLIANCE), NOMAD=85 (use NOMADINVASION, ALLIANCE_NOMADINVASION_PLAYER or
+  ALLIANCE_NOMADINVASION_ALLIANCE), OUTER_REALMS=63 (63 is KINGDOMS_LEAGUE_SEASON), BERIMOND=113,
+  SHAPESHIFTER=60 and HORIZON=134. RankingCategory is removed. list_id -> league_type_id on
+  GetHighscoreRequest, GetHighscoreResponse, GetRankingListRequest, GetRankingListResponse and
+  SearchAllianceRequest, and on RankingService.get_highscore/get_ranking_list. GetHighscoreRequest
+  and GetRankingListRequest default it to -1 and always send it; GetHighscoreResponse.league_type_id
+  is -1 rather than None when missing. GetRankingListRequest requires max_results (M) and defaults
+  rank to 1; get_ranking_list takes max_results as its third argument. LeagueBracketDef.league_id ->
+  league_type_id. The list type (LT) of GetHighscoreRequest, GetRankingListRequest,
+  SearchAllianceRequest and RankingService.get_highscore/get_ranking_list takes a RankingType
+  instead of an int.
+
+- **spy**: Execute_instant_spy no longer pays with feathers by default; pass feathers=True for the
+  old behaviour.
+
+- **spy**: SendSpyResponse no longer has the arrival_time field; movement_id is a property that is
+  None when the reply has no movement, and the movement is spy_movement.
+
+- **spy**: The invalid_sne_format and sne_timeout_or_error_* reasons are gone: unreadable or
+  unrelated sne messages are skipped, and a wait that ends without the report gives sne_timeout (or
+  report_target_mismatch when only reports for another position came, disconnected when the
+  connection dropped).
+
+- **types**: Kingdom parameters and fields are typed Kingdom. An int naming one of the six kingdoms
+  still validates, but any other id is now a ValidationError (ValueError from fill_attack),
+  GetMapAreaResponse with an unknown KID fails validation, camp_kingdom_id returns Kingdom | None,
+  and GetDefenseRequest.kingdom_id defaults to None instead of -1.
+
+
 ## v0.40.0 (2026-09-29)
 
 ### Bug Fixes
