@@ -283,13 +283,6 @@ class HelpType(IntEnum):
     RECRUIT = 6  # Recruit soldiers
 
 
-class ProductionListType(IntEnum):
-    """Types of production lists."""
-
-    SOLDIERS = 0
-    TOOLS = 1
-
-
 class BasePayload(BaseModel):
     """Base class for all protocol payloads."""
 
@@ -472,6 +465,38 @@ def client_int(value: Any) -> int:
 ClientInt = Annotated[int, BeforeValidator(client_int)]
 
 
+class CurrencyTotals(BasePayload):
+    """
+    Gold and rubies after an action, the ``gcu`` block.
+
+    Client: ``CurrencyData.parseGCU`` (bundle line 141191), which reads
+    ``CollectableItemC1VO.SERVER_KEY`` "C1" (bundle line 7995) and
+    ``CollectableItemC2VO.SERVER_KEY`` "C2" (bundle line 4876).
+    """
+
+    gold: int | float | None = Field(
+        alias="C1", default=None, description="Gold (C1), assigned as sent; None when missing or not a number"
+    )
+    rubies: int | float | None = Field(
+        alias="C2", default=None, description="Rubies (C2), assigned as sent; None when missing or not a number"
+    )
+
+    @field_validator("gold", "rubies", mode="before")
+    @classmethod
+    def _number_or_none(cls, value: Any) -> Any:
+        # parseGCU assigns the value as it comes; a value that is no number is not a total
+        return value if isinstance(value, (int, float)) and not isinstance(value, bool) else None
+
+
+def _currency_block(value: Any) -> Any:
+    # parseGCU reads the block only when it is set
+    return value if isinstance(value, (dict, CurrencyTotals)) else None
+
+
+CurrencyBlock = Annotated[CurrencyTotals | None, BeforeValidator(_currency_block)]
+"""A ``gcu`` block, or None when a reply sends none or something that is not an object."""
+
+
 def parse_int(value: Any) -> int:
     """
     JavaScript's ``parseInt``: the leading integer of the value's text, 0 where it gives NaN.
@@ -607,7 +632,8 @@ __all__ = [
     "Kingdom",
     "MapItemType",
     "HelpType",
-    "ProductionListType",
+    "CurrencyBlock",
+    "CurrencyTotals",
     # Base classes
     "BasePayload",
     "BaseRequest",
