@@ -838,6 +838,62 @@ class TestFillAttack:
         assert (item.base_wall_bonus, item.base_gate_bonus, item.base_moat_bonus) == (110.0, 110.0, 0.0)
         assert MapAreaItem.from_list([1, 700, 710, 900, 4242, 1, 1, 1, 0, 0]).base_wall_bonus is None
 
+    def test_an_invasion_camps_protection_is_divided_by_a_hundred(self):
+        # FightScreenHelper.getDefenceBonuses (bundle line 19148) takes baseWallBonus / 100,
+        # as fortification_bonuses does for a castle's buildings
+        from empire_core.attack.service import _Target
+        from empire_core.enums import Flank
+
+        client = self.build([[601, 100_000]])
+        assert client.game_data is not None
+        target = _Target(x=700, y=710, row=[27, 700, 710, -1, 4, 0, 0, 0, -1, 110, 120, 30])
+
+        defense = client.attack._target_defense(client.game_data, target)
+
+        assert defense is not None
+        left, middle = defense[Flank.LEFT], defense[Flank.MIDDLE]
+        assert (left.wall_bonus, left.gate_bonus, left.moat_bonus) == pytest.approx((1.1, 0.0, 0.3))
+        assert middle.gate_bonus == pytest.approx(1.2)
+
+    def test_an_alien_camps_row_gives_its_protection_and_level(self):
+        # A captured red alien camp row; AAlienInvasionMapobjectVO returns fields 6 to 8 as its bonuses
+        from empire_core.attack.service import _Target
+        from empire_core.enums import Flank
+
+        client = self.build([[601, 100_000]])
+        assert client.game_data is not None
+        row = [34, 619, 242, 70, -1, 0, 120, 120, 45, 0, -1]
+        target = _Target(x=619, y=242, row=row)
+
+        defense = client.attack._target_defense(client.game_data, target)
+
+        assert defense is not None
+        left, middle = defense[Flank.LEFT], defense[Flank.MIDDLE]
+        assert (left.wall_bonus, middle.gate_bonus, left.moat_bonus) == pytest.approx((1.2, 1.2, 0.45))
+
+        conn(client).script["adi"] = xt_packet("adi", None, error_code=203)
+        conn(client).script["gaa"] = xt_packet("gaa", {"AI": [row], "OI": []})
+        read = _Target(x=619, y=242)
+        client.attack._read_target(read, castle_id=12345, timeout=1.0)
+        assert (read.row, read.level) == (row, 70)
+        assert conn(client).requested.count("gaa") == 1
+
+    def test_the_wolf_king_and_alliance_camps_take_their_rows_protection(self):
+        from empire_core.attack.service import _Target
+        from empire_core.enums import Flank
+
+        client = self.build([[601, 100_000]])
+        assert client.game_data is not None
+        for row in (
+            [42, 1, 2, 60, 12, 0, 40, 50, 60],
+            [35, 1, 2, 60, 8, 100, 500, 20, 6, 3, 40, 50, 60],
+            [40, 1, 2, 60, 8, 100, 500, 20, 6, 3, 40, 50, 60],
+        ):
+            defense = client.attack._target_defense(client.game_data, _Target(x=1, y=2, row=row))
+            assert defense is not None
+            middle = defense[Flank.MIDDLE]
+            assert (middle.wall_bonus, middle.gate_bonus, middle.moat_bonus) == pytest.approx((0.4, 0.5, 0.6)), row
+
     def test_an_unknown_camp_rank_says_which_rank(self):
         client = self.build([[601, 100_000]])
         # Rank 99 is a daimyo castle the trimmed tables do not describe.

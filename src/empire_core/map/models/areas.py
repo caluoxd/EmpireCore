@@ -2,7 +2,8 @@
 
 Commands:
 - gaa: Get map area/chunk
-- fnm: Find NPC on map
+- fnm: Find the next map object of a type
+- jaa: Join a map area by its position
 """
 
 from __future__ import annotations
@@ -10,14 +11,21 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from pydantic import ConfigDict, Field, ValidationInfo, field_validator
+from pydantic import ConfigDict, Field, ValidationInfo, field_validator, model_validator
 
-from empire_core.enums import Kingdom
-from empire_core.protocol.base import BasePayload, BaseRequest, BaseResponse, Position, list_or_empty, object_or_none
-from empire_core.protocol.js import ClientInt
+from empire_core.enums import Kingdom, MapItemType, PeaceModeStatus
+from empire_core.protocol.base import (
+    BasePayload,
+    BaseRequest,
+    BaseResponse,
+    enum_or_none,
+    object_or_none,
+    readable_list,
+)
+from empire_core.protocol.js import ClientInt, ParseInt, js_loose_equals, js_parse_int, js_truthy
 
 from .items import MapAreaItem, parse_area_rows
-from .owners import OwnerCrest, OwnerFaction
+from .owners import AllianceEmblem, OwnerCastlePosition, OwnerCrest, OwnerFaction
 
 logger = logging.getLogger(__name__)
 
@@ -50,82 +58,97 @@ class GetMapAreaRequest(BaseRequest):
     y2: int = Field(alias="AY2", description="Second corner's map y")
 
 
-class AllianceCrest(BasePayload):
-    """
-    An alliance's crest: a layout and its colours.
-
-    Client: ``AllianceCrestVO.fillWithData`` (bundle line 11233).
-    """
-
-    layout_id: ClientInt = Field(alias="ACLI", default=0, description="Crest layout id")
-    color_ids: list[ClientInt] = Field(
-        alias="ACCS", default_factory=list, description="Colour ids, one per layout colour"
-    )
-
-    @field_validator("color_ids", mode="before")
-    @classmethod
-    def _stored_raw(cls, value: Any) -> Any:
-        # The client stores ACCS as it arrives, so a missing list is no colours
-        return list_or_empty(value)
-
-
-class AllianceEmblem(BasePayload):
-    """
-    The alliance crest block of an owner record: its ``aee``.
-
-    Client: ``WorldMapOwnerInfoVO.fillFromParamObject`` (bundle line 10794)
-    reads only ``ACCA``, and only for a player in an alliance.
-    """
-
-    crest: AllianceCrest | None = Field(alias="ACCA", default=None, description="The alliance's current crest")
-
-    @field_validator("crest", mode="before")
-    @classmethod
-    def _crest_needs_an_object(cls, value: Any) -> Any:
-        return object_or_none(value)
-
-
 class MapObject(BasePayload):
     """
-    An owner record from a map scan's OI list.
+    An owner record: one player named by the rows of a map reply's ``OI`` list.
 
-    These describe the players who own objects in the scanned area. An AI
-    row's player id matches a record's ``owner_id``; the player's own castles
-    and villages are listed in ``area_positions`` and ``village_positions`` as
-    ``[kingdom_id, object_id, x, y, area_type]``.
+    A row's ``owner_id`` (or a relocating castle's ``occupier_id``) matches a
+    record's ``owner_id``. The player's castles and villages, wherever they
+    are, are listed in ``castle_positions`` and ``village_positions``.
 
-    Client: WorldMapOwnerInfoVO.fillFromParamObject
+    The client reads most numbers through ``parseInt`` and skips a record
+    with no ``OID``. It reads ``aee`` only for a player in an alliance; this
+    model reads it whenever it is sent.
+
+    Client: ``WorldMapOwnerInfoVO.fillFromParamObject`` (bundle line 10794),
+    ``CastleOtherPlayerData.parseOwnerInfo`` (bundle line 138996)
     """
 
-    owner_id: ClientInt | None = Field(alias="OID", default=None)
-    is_dummy: bool = Field(alias="DUM", default=False)
-    owner_name: str | None = Field(alias="N", default=None)
+    owner_id: int | None = Field(alias="OID", default=None, description="Player id; negative for an NPC")
+    is_dummy: bool = Field(alias="DUM", default=False, description="The record stands in for a player not loaded")
+
+    @model_validator(mode="before")
+    @classmethod
+    def _dummy_keeps_only_its_id(cls, data: Any) -> Any:
+        # CastleOtherPlayerData.parseOwnerInfo (bundle line 139000): a record with a truthy DUM becomes a
+        # dummy player with just its id, and fillFromParamObject never reads the rest
+        if isinstance(data, dict) and js_truthy(data.get("DUM")):
+            return {"OID": data.get("OID"), "N": "", "DUM": 1}
+        return data
+
+    owner_name: str | None = Field(alias="N", default=None, description="Player name")
     emblem: OwnerCrest | None = Field(alias="E", default=None, description="The player's crest")
-    level: ClientInt = Field(alias="L", default=0)
-    legendary_level: ClientInt = Field(alias="LL", default=0)
-    honor: ClientInt = Field(alias="H", default=0)
-    achievement_points: ClientInt = Field(alias="AVP", default=0)
-    glory_points: ClientInt = Field(alias="CF", default=0)
-    highest_glory_points: ClientInt = Field(alias="HF", default=0)
-    prefix_title: ClientInt = Field(alias="PRE", default=0)
-    suffix_title: ClientInt = Field(alias="SUF", default=0)
-    current_top_x: ClientInt = Field(alias="TOPX", default=0)
-    might_points: ClientInt = Field(alias="MP", default=0)
-    is_ruin: bool = Field(alias="R", default=False)
-    alliance_id: ClientInt | None = Field(alias="AID", default=None)
-    alliance_rank: ClientInt = Field(alias="AR", default=0)
-    alliance_name: str | None = Field(alias="AN", default=None)
+    level: ParseInt = Field(alias="L", default=0, description="Player level")
+    legendary_level: ParseInt = Field(alias="LL", default=0, description="Legendary level")
+    honor: ParseInt = Field(alias="H", default=0, description="Honor")
+    achievement_points: ParseInt = Field(alias="AVP", default=0, description="Achievement points")
+    prefix_title: int | None = Field(alias="PRE", default=None, description="Title id shown before the name")
+    suffix_title: int | None = Field(alias="SUF", default=None, description="Title id shown after the name")
+    current_top_x: ParseInt = Field(alias="TOPX", default=0, description="Top-ranking placement marker")
+    might_points: ParseInt = Field(alias="MP", default=0, description="Might points")
+    is_ruin: bool = Field(alias="R", default=False, description="The player's castles are ruins")
+    alliance_id: int | None = Field(alias="AID", default=None, description="Alliance id; negative for none")
+    alliance_rank: ParseInt = Field(alias="AR", default=0, description="Rank in the alliance")
+    alliance_name: str = Field(alias="AN", default="", description="Alliance name")
     alliance_emblem: AllianceEmblem | None = Field(alias="aee", default=None, description="The alliance's crest")
-    remaining_protection_time: ClientInt = Field(alias="RPT", default=0)
-    area_positions: list[list[int]] | None = Field(alias="AP", default_factory=list)
-    village_positions: list[list[int]] | None = Field(alias="VP", default_factory=list)
-    is_searching_alliance: bool = Field(alias="SA", default=False)
-    has_vip_flag: bool = Field(alias="VF", default=False)
-    has_premium_flag: bool = Field(alias="PF", default=False)
-    remaining_relocation_time: ClientInt = Field(alias="RRD", default=0)
-    storm_title_id: ClientInt = Field(alias="TI", default=-1)  # -1: no title, 50-53: ranks 1-4, 54: ranks 5-10
-    remaining_noob_protection: ClientInt = Field(alias="RNP", default=0)
+    remaining_protection_time: ParseInt = Field(alias="RPT", default=0, description="Seconds of peace protection left")
+    castle_positions: list[OwnerCastlePosition] = Field(
+        alias="AP", default_factory=list, description="The player's castles"
+    )
+    village_positions: list[OwnerCastlePosition] = Field(
+        alias="VP", default_factory=list, description="The player's villages"
+    )
+    is_searching_alliance: bool = Field(alias="SA", default=False, description="Looking for an alliance")
+    has_vip_flag: bool = Field(alias="VF", default=False, description="VIP flag")
+    has_premium_flag: bool = Field(alias="PF", default=False, description="Premium flag")
+    remaining_relocation_time: ParseInt = Field(
+        alias="RRD", default=0, description="Seconds until the player's castle relocation ends"
+    )
+    remaining_noob_protection: ParseInt = Field(
+        alias="RNP", default=0, description="Seconds of beginner protection left"
+    )
     faction: OwnerFaction | None = Field(alias="FN", default=None, description="Faction event standing")
+    via_refer_a_friend: bool = Field(alias="IRF", default=False, description="Joined through refer-a-friend")
+
+    @field_validator("owner_id", "alliance_id", mode="before")
+    @classmethod
+    def _parse_int_or_none(cls, value: Any) -> Any:
+        return js_parse_int(value)
+
+    @field_validator("is_dummy", mode="before")
+    @classmethod
+    def _one(cls, value: Any) -> bool:
+        return js_loose_equals(value, 1)
+
+    @field_validator("is_ruin", mode="before")
+    @classmethod
+    def _parsed_one(cls, value: Any) -> bool:
+        return js_parse_int(value) == 1
+
+    @field_validator("is_searching_alliance", "has_vip_flag", "has_premium_flag", mode="before")
+    @classmethod
+    def _truthy(cls, value: Any) -> bool:
+        return js_truthy(value)
+
+    @field_validator("via_refer_a_friend", mode="before")
+    @classmethod
+    def _parsed_truthy(cls, value: Any) -> bool:
+        return bool(js_parse_int(value))
+
+    @field_validator("alliance_name", mode="before")
+    @classmethod
+    def _name_or_empty(cls, value: Any) -> Any:
+        return value if js_truthy(value) else ""
 
     @field_validator("emblem", "alliance_emblem", "faction", mode="before")
     @classmethod
@@ -133,29 +156,113 @@ class MapObject(BasePayload):
         # The client only reads keys off these; anything that is not an object leaves its defaults
         return object_or_none(value)
 
-    @field_validator("area_positions", "village_positions", mode="before")
+    @field_validator("castle_positions", "village_positions", mode="before")
     @classmethod
-    def _unwrap_nested_area_positions(cls, value: object) -> object:
-        """Accept the server's occasional extra wrapper around one row (seen on AP in Berimond)."""
+    def _position_rows(cls, value: Any) -> Any:
+        """
+        Rows as ``WorldMapOwnerInfoVO.parsePosList`` (bundle line 10795) reads them.
+
+        A row the server wraps in one extra list (seen on AP in Berimond) is
+        unwrapped, which the client does not do; a row that still cannot be
+        read is skipped instead of failing the record.
+        """
         if not isinstance(value, list):
-            return value
-        return [
+            return []
+        unwrapped = [
             entry[0] if isinstance(entry, list) and len(entry) == 1 and isinstance(entry[0], list) else entry
             for entry in value
         ]
+        return readable_list(OwnerCastlePosition, unwrapped)
+
+
+def _owner_records(value: Any) -> list[MapObject]:
+    """``CastleOtherPlayerData.parseOwnerInfo`` (bundle line 138996) skips a record without an ``OID``."""
+    return readable_list(
+        MapObject,
+        value,
+        accept=lambda record: isinstance(record, dict),
+        keep=lambda record: js_truthy(record.get("OID")),
+        warn=logger,
+        what="owner records",
+    )
+
+
+class KingdomProtection(BasePayload):
+    """
+    The player's own protection in one kingdom: a ``uap`` block.
+
+    ``PMS`` and ``PMT`` mean the peace mode outside Berimond and the faction
+    protection in Berimond, as the client reads them. The client acts on the
+    block only for the kingdom it is in.
+
+    Client: ``CastleUserData.parse_UAP`` (bundle lines 9899-9906), which hands a
+    Berimond block to ``FactionEventVO.parse_uap`` (bundle line 7366)
+    """
+
+    kingdom_id: int | None = Field(alias="KID", default=None, description="The kingdom this protection is for")
+    noob_protection_seconds: ClientInt = Field(
+        alias="NS", default=0, description="Seconds of beginner protection left in that kingdom"
+    )
+    protection_status: ClientInt = Field(
+        alias="PMS",
+        default=0,
+        description="Peace mode status (see peace_mode_status), or in Berimond the faction protection status",
+    )
+    protection_seconds: ClientInt = Field(
+        alias="PMT", default=0, description="Seconds left of the peace mode stage, or in Berimond of faction protection"
+    )
+
+    @property
+    def is_noob_protected(self) -> bool:
+        """Whether the player still has beginner protection there."""
+        return self.noob_protection_seconds > 0
+
+    @property
+    def peace_mode_status(self) -> PeaceModeStatus | None:
+        """``protection_status`` as a peace mode stage; None for a value the client does not define."""
+        return enum_or_none(PeaceModeStatus, self.protection_status)
+
+
+class MapArea(BasePayload):
+    """
+    Map rows and the owner records of the players they name: the ``gaa`` block of a find reply.
+
+    Client: ``FNMCommand.executeCommand`` (bundle line 40185) reads ``gaa.OI``
+    with ``parseOwnerInfoArray`` and ``gaa.AI`` with ``parseAreaInfos``.
+    """
+
+    items: list[MapAreaItem] = Field(alias="AI", default_factory=list, description="The map rows")
+    owners: list[MapObject] = Field(alias="OI", default_factory=list, description="Owner records for the rows")
+
+    @field_validator("items", mode="before")
+    @classmethod
+    def _parse_rows(cls, value: Any) -> Any:
+        items, skipped = parse_area_rows(value)
+        if skipped:
+            logger.warning(f"Skipped {skipped}/{len(value)} unparseable map rows")
+        return items
+
+    @field_validator("owners", mode="before")
+    @classmethod
+    def _parse_owners(cls, value: Any) -> Any:
+        return _owner_records(value)
 
 
 class GetMapAreaResponse(BaseResponse):
     """
-    Response containing map area data.
+    The map rows of a rectangle, the owner records of the players they name, and the player's own protection.
 
     Command: gaa
-    Response format: {"KID": 0, "AI": [[type, x, y, location_id, player_id, ...], ...], ...}
+    Response format: {"KID": 0, "AI": [[type, x, y, ...], ...], "OI": [{...}, ...],
+    "uap": {"KID": .., "NS": .., "PMS": .., "PMT": ..}}
 
-    Use get_moving_flags() to extract the castles that are currently in transit.
+    Each row is read in the reply's kingdom (see :class:`MapAreaItem`). A scan
+    moves the session off the castle it had joined, so castle-scoped reads
+    after it must join the castle again (``client.army`` methods do).
 
-    Client: ``GAACommand.executeCommand`` (bundle line 130112) reads ``OI``
-    with ``parseOwnerInfoArray`` and ``AI`` with ``parseAreaInfos``.
+    Client: ``GAACommand.executeCommand`` (bundle line 130112) reads ``uap``
+    with ``parse_UAP``, ``OI`` with ``parseOwnerInfoArray`` and ``AI`` with
+    ``parseAreaInfos``.
     """
 
     command = "gaa"
@@ -165,103 +272,152 @@ class GetMapAreaResponse(BaseResponse):
     kingdom: Kingdom = Field(alias="KID", default=Kingdom.GREEN, description="The kingdom the area lies in")
     items: list[MapAreaItem] = Field(alias="AI", default_factory=list, description="The area's map rows")
     owners: list[MapObject] = Field(
-        alias="OI", default_factory=list, description="Owner records for the players owning the rows"
+        alias="OI", default_factory=list, description="Owner records for the players the rows name"
+    )
+    protection: KingdomProtection | None = Field(
+        alias="uap", default=None, description="The player's own protection in the kingdom"
     )
 
     @field_validator("items", mode="before")
     @classmethod
     def _parse_rows(cls, value: Any, info: ValidationInfo) -> Any:
-        items, skipped = parse_area_rows(value)
+        kingdom = info.data.get("kingdom", Kingdom.GREEN)
+        items, skipped = parse_area_rows(value, kingdom)
         if skipped:
             # One line per response, not per row, so a fully drifted AI array can't flood the log.
             logger.warning(
-                f"Skipped {skipped}/{len(value)} unparseable AI rows in map area "
-                f"response for kingdom {info.data.get('kingdom')}"
+                f"Skipped {skipped}/{len(value)} unparseable AI rows in map area response for kingdom {kingdom}"
             )
         return items
 
-    def get_ruins(self) -> list[MapObject]:
-        """
-        Owner records flagged as ruins.
+    @field_validator("owners", mode="before")
+    @classmethod
+    def _parse_owners(cls, value: Any) -> Any:
+        return _owner_records(value)
 
-        These have no coordinates; see :class:`MapObject`.
-        """
+    @field_validator("protection", mode="before")
+    @classmethod
+    def _protection_needs_an_object(cls, value: Any) -> Any:
+        return object_or_none(value)
+
+    def get_ruins(self) -> list[MapObject]:
+        """Owner records flagged as ruins; their castles are in each record's ``castle_positions``."""
         return [owner for owner in self.owners if owner.is_ruin]
 
     def get_moving_flags(self) -> dict[int, tuple[int, int]]:
         """
-        Extract the castles in this area that are currently relocating.
+        The castles in this area that are on the move, by the relocating player's id.
 
-        Only type-1 entries whose relocation flag (raw field 19) is set count;
-        settled castles are ignored. Entries are keyed by the player id (raw
-        field 4) so callers can match them against ``AllianceMember.player_id``.
+        See :attr:`MapAreaItem.is_relocating`; the owner record with that id
+        says how long the relocation has left. Whether ``(x, y)`` is where the
+        castle comes from or where it goes is not settled by the client.
 
         Returns:
-            Dict mapping player_id -> (x, y) in-transit position
+            Dict mapping player_id -> (x, y)
         """
-        result: dict[int, tuple[int, int]] = {}
-        for item in self.items:
-            if item.is_relocating and item.player_id > 0:
-                result[item.player_id] = (item.x, item.y)
-        return result
+        return {
+            item.occupier_id: (item.x, item.y)
+            for item in self.items
+            if item.is_relocating and item.occupier_id is not None
+        }
 
 
 # =============================================================================
-# FNM - Find NPC
+# FNM - Find the next map object
 # =============================================================================
 
 
-class FindNPCRequest(BaseRequest):
+class FindNextMapObjectRequest(BaseRequest):
     """
-    Find NPC targets on the map.
+    Find the nearest map object of one area type, as the client's "show me" and "jump to" buttons do.
 
     Command: fnm
-    Payload: {"NT": npc_type, "L": level, "KID": kingdom_id}
+    Payload: {"T": area_type, "KID": kingdom, "LMIN": min_level, "LMAX": max_level, "NID": owner_id}
 
-    NPC types vary by game version.
+    The client asks this for robber baron camps (DUNGEON with LMIN and LMAX 1,
+    bundle line 143000), alien camps (bundle lines 114204, 117711), faction
+    invasion, samurai and nomad camps and the alliance raid portal, naming the
+    NPC owner of the camps it wants (bundle lines 75451, 91575, 98463, 98544,
+    98951), and Berimond faction camps with LMIN -3 (bundle line 54675); quest
+    jumps default LMIN to -3 too (bundle line 97692). What LMIN -3 asks for is
+    not settled by the client. The server answers NO_PLAYER_FOUND (153) when
+    nothing matches.
+
+    Client: ``C2SFindNextMapObjectVO`` (bundle line 8970), whose key order the
+    fields follow
     """
 
     command = "fnm"
 
-    npc_type: int = Field(alias="NT")
-    level: int | None = Field(alias="L", default=None)
-    kingdom: Kingdom = Field(alias="KID", default=Kingdom.GREEN)
+    area_type: MapItemType = Field(alias="T", description="The area type to look for")
+    kingdom: Kingdom = Field(alias="KID", default=Kingdom.GREEN, description="The kingdom to look in")
+    min_level: int = Field(alias="LMIN", default=-1, description="Lowest level to match, -1 for any")
+    max_level: int = Field(alias="LMAX", default=-1, description="Highest level to match, -1 for any")
+    owner_id: int = Field(alias="NID", default=-1, description="The NPC owner to match, -1 for any")
 
 
-class NPCLocation(BasePayload):
-    """An NPC location on the map."""
-
-    x: int = Field(alias="X")
-    y: int = Field(alias="Y")
-    npc_type: int = Field(alias="NT")
-    level: int = Field(alias="L")
-    npc_id: int = Field(alias="NID", default=0)
-
-    @property
-    def position(self) -> Position:
-        """Get NPC position."""
-        return Position(X=self.x, Y=self.y)
-
-
-class FindNPCResponse(BaseResponse):
+class FindNextMapObjectResponse(BaseResponse):
     """
-    Response containing NPC locations.
+    Where the object found lies, with the map rows around it.
 
     Command: fnm
+    Payload: {"gaa": {"AI": [...], "OI": [...]}, "X": x, "Y": y}
+
+    Client: ``FNMCommand.executeCommand`` (bundle line 40185), which centres
+    the map on ``X``/``Y`` with ``CastleWorldmapData.parseSearchInfos``
+    (bundle line 19010).
     """
 
     command = "fnm"
 
-    npcs: list[NPCLocation] = Field(alias="N", default_factory=list)
+    x: int = Field(alias="X", default=0, description="Map x of the object found")
+    y: int = Field(alias="Y", default=0, description="Map y of the object found")
+    area: MapArea = Field(alias="gaa", default_factory=MapArea, description="The map rows around it")
+
+    @field_validator("area", mode="before")
+    @classmethod
+    def _area_needs_an_object(cls, value: Any) -> Any:
+        return value if isinstance(value, (dict, MapArea)) else {}
+
+    def found(self) -> MapAreaItem | None:
+        """The row at ``(x, y)``, when the reply includes it."""
+        return next((item for item in self.area.items if (item.x, item.y) == (self.x, self.y)), None)
+
+
+# =============================================================================
+# JAA - Join a map area
+# =============================================================================
+
+
+class JoinAreaRequest(BaseRequest):
+    """
+    Join the map object at a position, as the client does for any map object but a castle.
+
+    The client joins a castle or kingdom castle by id (``jca``) and anything
+    else, an outpost, capital or metropolis among them, by position. Which
+    objects the server lets a player join this way is not settled by the client.
+
+    Command: jaa
+    Payload: {"PX": x, "PY": y, "KID": kingdom}
+
+    Client: ``C2SJoinAreaVO`` (bundle line 56128), whose key order the fields
+    follow; sent at bundle line 100892
+    """
+
+    command = "jaa"
+
+    x: int = Field(alias="PX", description="Map x")
+    y: int = Field(alias="PY", description="Map y")
+    kingdom: Kingdom = Field(alias="KID", default=Kingdom.GREEN, description="The kingdom it lies in")
 
 
 __all__ = [
     "GetMapAreaRequest",
     "GetMapAreaResponse",
+    "MapArea",
     "MapObject",
-    "AllianceCrest",
-    "AllianceEmblem",
-    "FindNPCRequest",
-    "FindNPCResponse",
-    "NPCLocation",
+    "KingdomProtection",
+    "FindNextMapObjectRequest",
+    "FindNextMapObjectResponse",
+    "JoinAreaRequest",
 ]

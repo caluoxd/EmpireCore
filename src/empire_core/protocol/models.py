@@ -264,17 +264,23 @@ from empire_core.enums import (
     WearerType,
 )
 from empire_core.map.models.areas import (
-    AllianceCrest,
-    AllianceEmblem,
-    FindNPCRequest,
-    FindNPCResponse,
+    FindNextMapObjectRequest,
+    FindNextMapObjectResponse,
     GetMapAreaRequest,
     GetMapAreaResponse,
+    JoinAreaRequest,
+    KingdomProtection,
+    MapArea,
     MapObject,
-    NPCLocation,
 )
 from empire_core.map.models.items import MapAreaItem
-from empire_core.map.models.owners import OwnerCastlePosition, OwnerCrest, OwnerFaction
+from empire_core.map.models.owners import (
+    AllianceCrest,
+    AllianceEmblem,
+    OwnerCastlePosition,
+    OwnerCrest,
+    OwnerFaction,
+)
 from empire_core.messages.models import (
     ForwardSpyLogRequest,
     GetSpyReportRequest,
@@ -344,7 +350,6 @@ from empire_core.spy.models import (
     MaxSpiesResponse,
     SendSpyRequest,
     SendSpyResponse,
-    SpyProtection,
     SpyScreenInfoRequest,
     SpyScreenInfoResponse,
     SpyTargetArea,
@@ -459,6 +464,7 @@ __all__ = [
     "GetMapAreaRequest",
     "GetMapAreaResponse",
     "MapObject",
+    "KingdomProtection",
     "AllianceCrest",
     "AllianceEmblem",
     "GetMovementsRequest",
@@ -474,9 +480,10 @@ __all__ = [
     "OwnerCastlePosition",
     "OwnerCrest",
     "OwnerFaction",
-    "FindNPCRequest",
-    "FindNPCResponse",
-    "NPCLocation",
+    "FindNextMapObjectRequest",
+    "FindNextMapObjectResponse",
+    "JoinAreaRequest",
+    "MapArea",
     # Player
     "GetPlayerInfoRequest",
     "GetPlayerInfoResponse",
@@ -520,7 +527,6 @@ __all__ = [
     "SendSpyResponse",
     "SpyScreenInfoRequest",
     "SpyScreenInfoResponse",
-    "SpyProtection",
     "SpyTargetArea",
     "AutoSpyRequest",
     "AutoSpyResponse",

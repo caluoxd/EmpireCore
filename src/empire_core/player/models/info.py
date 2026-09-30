@@ -16,7 +16,7 @@ from pydantic import ConfigDict, Field, field_validator, model_validator
 
 from empire_core.castle.models.castles import CastleInfo, GetCastlesResponse
 from empire_core.enums import Kingdom, MapItemType
-from empire_core.map.models.areas import GetMapAreaResponse, MapObject
+from empire_core.map.models.areas import MapArea, MapObject
 from empire_core.protocol.base import BasePayload, BaseRequest, BaseResponse, object_or_none
 from empire_core.protocol.js import js_int
 
@@ -246,8 +246,8 @@ class SearchPlayerResponse(BaseResponse):
     Command: wsp
 
     Client: ``WSPCommand.executeCommand`` (bundle line 131619) reads ``gaa.OI``
-    with ``parseOwnerInfoArray`` and ``gaa.AI`` with ``parseAreaInfos``, as a
-    map area reply, then ``CastleWorldmapData.parseSearchInfos`` (bundle line
+    with ``parseOwnerInfoArray`` and ``gaa.AI`` with ``parseAreaInfos``, as the
+    fnm reply does, then ``CastleWorldmapData.parseSearchInfos`` (bundle line
     19010) opens the area at ``X``/``Y``, the found player's castle.
     """
 
@@ -255,9 +255,9 @@ class SearchPlayerResponse(BaseResponse):
 
     model_config = ConfigDict(populate_by_name=True, extra="allow")
 
-    area: GetMapAreaResponse = Field(
+    area: MapArea = Field(
         alias="gaa",
-        default_factory=GetMapAreaResponse,
+        default_factory=MapArea,
         description="The found player's map rows and owner records",
     )
     x: int | None = Field(alias="X", default=None, description="Map x of the found player's castle")
@@ -276,7 +276,7 @@ class SearchPlayerResponse(BaseResponse):
         or its owner has no record, and None when there are no records.
         """
         at_position = next(
-            (item for item in self.area.items if (item.x, item.y) == (self.x, self.y) and item.owner_id >= 0),
+            (item for item in self.area.items if (item.x, item.y) == (self.x, self.y) and item.has_player_owner),
             None,
         )
         if at_position is not None:
