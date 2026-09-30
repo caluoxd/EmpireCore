@@ -24,7 +24,7 @@ from pydantic import (
 )
 from pydantic.functional_validators import ModelWrapValidatorHandler
 
-from .base import BasePayload, BaseRequest, BaseResponse, ClientInt, client_int
+from .base import BasePayload, BaseRequest, BaseResponse, ClientInt, Kingdom, client_int, enum_or_none
 
 logger = logging.getLogger(__name__)
 
@@ -36,8 +36,6 @@ PICTURE_ISLAND_CASTELLAN = 13
 """``EquipmentConst.PICK_BARON_ISLAND`` (dll line 19249)"""
 FACTION_BARON_ID = -16
 """``FactionConst.BARON_ID`` (dll line 19333)"""
-ISLAND_KINGDOM_ID = 4
-"""``WorldIsland.KINGDOM_ID`` (dll line 20036)"""
 
 
 class EquipmentSlot(IntEnum):
@@ -52,10 +50,18 @@ class EquipmentSlot(IntEnum):
 
 
 class WearerType(IntEnum):
-    """Who may wear an equipment item."""
+    """
+    Who may wear an equipment item.
 
-    ALL = 0
-    CASTELLAN = 1  # EquipmentConst.BARON_WEARER_ID
+    The client treats any id but 1 and 2 as wearable by all
+    (``BasicEquippableVO.getLordType``, bundle line 4837).
+
+    Client: ``EquipmentConst.UNDEFINED_WEARER_ID``, ``BARON_WEARER_ID`` and
+    ``COMMANDER_WEARER_ID`` (dll line 19249)
+    """
+
+    UNDEFINED = -1
+    CASTELLAN = 1
     COMMANDER = 2
 
 
@@ -70,6 +76,28 @@ class EquipmentType(IntEnum):
     UNIQUE = 1
     UNIQUE_TEMPORARY = 2
     RELIC = 3
+
+
+class Rareness(IntEnum):
+    """
+    Rarity of an equipment item; hero items have their own range.
+
+    Client: ``EquipmentConst.RARENESS_*`` (dll line 19249)
+    """
+
+    UNIQUE = 0
+    COMMON = 1
+    RARE = 2
+    EPIC = 3
+    LEGENDARY = 4
+    RELIC = 5
+    HERO_UNIQUE = 10
+    HERO_BEGINN = 10
+    HERO_COMMON = 11
+    HERO_RARE = 12
+    HERO_EPIC = 13
+    HERO_LEGENDARY = 14
+    HERO_RELIC = 15
 
 
 def _is_number(value: Any) -> bool:
@@ -238,7 +266,7 @@ class Equipment(BasePayload):
 
     equipment_id: int = Field(default=0, description="Item id, row[0]")
     slot: int = Field(default=0, description="Slot type id, row[1]")
-    wearer_type: int = Field(default=WearerType.ALL, description="Who can wear it (WearerType), row[2]")
+    wearer_type: int = Field(default=WearerType.UNDEFINED, description="Who can wear it (WearerType), row[2]")
     rarity_id: ClientInt = Field(default=0, description="Rarity id, row[3], read through int()")
     graphic: int | str = Field(default=0, description="The client keeps row[4] as its graphic string")
     bonuses: Annotated[list[EquipmentBonus], _readable_rows(EquipmentBonus)] = Field(
@@ -303,6 +331,11 @@ class Equipment(BasePayload):
     def is_relic(self) -> bool:
         """True for a relic item, whose bonuses index the relic effect table."""
         return self.equipment_type == EquipmentType.RELIC
+
+    @property
+    def rarity_enum(self) -> Rareness | None:
+        """``rarity_id`` as a :class:`Rareness`, None for a value the client does not define."""
+        return enum_or_none(Rareness, self.rarity_id)
 
     @model_validator(mode="before")
     @classmethod
@@ -585,7 +618,7 @@ class Castellan(LeaderBase):
             return False
         if self.picture_id == PICTURE_FACTION_CASTELLAN and kingdom_id != FACTION_BARON_ID:
             return False
-        return not (self.picture_id == PICTURE_ISLAND_CASTELLAN and kingdom_id != ISLAND_KINGDOM_ID)
+        return not (self.picture_id == PICTURE_ISLAND_CASTELLAN and kingdom_id != Kingdom.STORM)
 
 
 class GetCommandersRequest(BaseRequest):
