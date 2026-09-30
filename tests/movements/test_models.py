@@ -6,8 +6,14 @@ import pytest
 from pydantic import ValidationError
 
 from empire_core.enums import SpyType
-from empire_core.protocol.base import Position
-from empire_core.protocol.models import GetMovementsResponse, MovementArea, MovementSpy
+from empire_core.protocol.base import Position, parse_response
+from empire_core.protocol.models import (
+    CancelMovementRequest,
+    CancelMovementResponse,
+    GetMovementsResponse,
+    MovementArea,
+    MovementSpy,
+)
 
 # Live capture, names scrubbed
 GOOD_MOVEMENT: dict[str, Any] = {
@@ -216,3 +222,40 @@ def test_gam_sends_no_castle():
     from empire_core.movements.models import GetMovementsRequest
 
     assert GetMovementsRequest().to_payload() == {}
+
+
+# GOOD_MOVEMENT turned back, shaped like a live mcm reply's A: the server swaps the
+# target and source areas, sets T to 2 and D to 1, and counts PT/TT for the way home
+RECALLED_MOVEMENT: dict[str, Any] = {
+    **GOOD_MOVEMENT,
+    "M": {
+        **GOOD_MOVEMENT["M"],
+        "PT": 75,
+        "TT": 129,
+        "D": 1,
+        "T": 2,
+        "TID": GOOD_MOVEMENT["M"]["OID"],
+        "TA": GOOD_MOVEMENT["M"]["SA"],
+        "SA": GOOD_MOVEMENT["M"]["TA"],
+    },
+}
+
+
+class TestCancelMovement:
+    def test_request_sends_the_movement_id_as_the_client_does(self):
+        request = CancelMovementRequest(MID=208)
+        assert request.get_command() == "mcm"
+        assert list(request.to_payload().items()) == [("MID", 208)]
+
+    def test_reply_reads_a_as_a_gam_entry(self):
+        reply = CancelMovementResponse.model_validate({"A": RECALLED_MOVEMENT})
+        assert reply.movement.movement.movement_id == 1
+        assert reply.movement.movement.is_returning
+        assert reply.movement.visible_army is not None
+
+    def test_reply_without_a_is_malformed(self):
+        with pytest.raises(ValidationError):
+            CancelMovementResponse.model_validate({})
+
+    def test_mcm_parses_to_the_reply_model(self):
+        assert isinstance(parse_response("mcm", {"A": RECALLED_MOVEMENT}), CancelMovementResponse)
