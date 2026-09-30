@@ -8,9 +8,9 @@ from typing import Any
 
 from pydantic import Field, ValidationError, field_validator, model_validator
 
-from empire_core.utils.enums import MapItemType
+from empire_core.utils.enums import MapItemType, SpyType
 
-from .base import BasePayload, BaseRequest, BaseResponse, ClientInt, Position
+from .base import BasePayload, BaseRequest, BaseResponse, ClientInt, Position, enum_or_none
 from .commanders import Commander
 
 
@@ -45,7 +45,7 @@ _AREA_LAYOUTS: dict[int, tuple[int | None, int | None, int | None]] = {
     MapItemType.CAPITAL: (3, 4, 10),
     MapItemType.OUTPOST: (3, 4, 10),
     MapItemType.KINGDOM_CASTLE: (3, 4, 10),
-    MapItemType.METRO: (3, 4, 10),
+    MapItemType.METROPOL: (3, 4, 10),
     MapItemType.VILLAGE: (3, 4, None),
     MapItemType.FACTION_VILLAGE: (None, 3, None),
     MapItemType.FACTION_TOWER: (None, 3, None),
@@ -54,7 +54,7 @@ _AREA_LAYOUTS: dict[int, tuple[int | None, int | None, int | None]] = {
     MapItemType.ISLE_RESOURCE: (3, 4, 6),
     MapItemType.MONUMENT: (3, 4, 9),
     MapItemType.LABORATORY: (3, 4, 8),
-    MapItemType.ABG_TOWER: (3, None, 4),
+    MapItemType.ALLIANCE_BATTLE_GROUND_TOWER: (3, None, 4),
 }
 
 
@@ -196,7 +196,7 @@ class MovementSpy(BasePayload):
     Client: ``SpyMapmovementVO.parseSpyInfo``.
     """
 
-    spy_type: int = Field(alias="ST", default=0, description="0 military, 1 eco, 2 sabotage, 3 plague")
+    spy_type: int = Field(alias="ST", default=0, description="Kind of spy mission, a SpyType value")
     accuracy_or_damage: int = Field(
         alias="SA", default=0, description="Accuracy percent, or damage percent for sabotage"
     )
@@ -204,8 +204,13 @@ class MovementSpy(BasePayload):
     risk: int = Field(alias="SR", default=0, description="Risk of being caught, percent")
 
     @property
+    def spy_type_enum(self) -> SpyType | None:
+        """``spy_type`` as a :class:`SpyType`, None for a value the client does not define."""
+        return enum_or_none(SpyType, self.spy_type)
+
+    @property
     def is_sabotage(self) -> bool:
-        return self.spy_type == 2
+        return self.spy_type == SpyType.SABOTAGE
 
 
 class MovementWrapper(BasePayload):

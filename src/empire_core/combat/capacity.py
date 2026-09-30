@@ -27,7 +27,8 @@ UNIT_SLOT_LEVELS_MIDDLE = (0, 0, 13, 13, 26, 26)
 TOOL_SLOT_LEVELS_FLANK = (0, 37)
 TOOL_SLOT_LEVELS_MIDDLE = (0, 11, 37)
 
-# The slot type a tool must fit to go in these slots (ClientConstCombat).
+# The slot type a tool must fit to go in these slots: CombatConst.SLOT_TYPE_MIDDLE_TOOL
+# and SLOT_TYPE_FLANK_TOOL (dll line 18941).
 TOOL_SLOT_TYPE_MIDDLE = 1
 TOOL_SLOT_TYPE_FLANK = 2
 
@@ -53,7 +54,7 @@ collector ids are not in its switch.
 
 LANDMARK_AREA_TYPES = frozenset(
     {
-        int(MapItemType.METRO),
+        int(MapItemType.METROPOL),
         int(MapItemType.CAPITAL),
         int(MapItemType.KINGS_TOWER),
         int(MapItemType.MONUMENT),
@@ -79,14 +80,14 @@ OTHER_PLAYER_INFO_AREA_TYPES = frozenset(
         int(MapItemType.CASTLE),
         int(MapItemType.OUTPOST),
         int(MapItemType.CAPITAL),
-        int(MapItemType.METRO),
+        int(MapItemType.METROPOL),
         int(MapItemType.VILLAGE),
         int(MapItemType.ISLE_RESOURCE),
         int(MapItemType.KINGS_TOWER),
         int(MapItemType.MONUMENT),
         int(MapItemType.LABORATORY),
         int(MapItemType.FACTION_CAMP),
-        int(MapItemType.ABG_TOWER),
+        int(MapItemType.ALLIANCE_BATTLE_GROUND_TOWER),
     }
 )
 """
@@ -107,7 +108,7 @@ ROW_OWNER_AREA_TYPES = frozenset(
         int(MapItemType.CASTLE),
         int(MapItemType.OUTPOST),
         int(MapItemType.CAPITAL),
-        int(MapItemType.METRO),
+        int(MapItemType.METROPOL),
         int(MapItemType.VILLAGE),
         int(MapItemType.ISLE_RESOURCE),
         int(MapItemType.KINGS_TOWER),
@@ -317,7 +318,7 @@ AREA_TYPE_LEVEL_FLOORS: dict[int, int] = {
     int(MapItemType.LABORATORY): 70,
 }
 
-LANDMARK_FLOOR_AREA_TYPES = frozenset({int(MapItemType.CAPITAL), int(MapItemType.METRO)})
+LANDMARK_FLOOR_AREA_TYPES = frozenset({int(MapItemType.CAPITAL), int(MapItemType.METROPOL)})
 
 
 def minimum_owner_level(

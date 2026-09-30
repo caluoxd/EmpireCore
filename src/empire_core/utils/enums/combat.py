@@ -15,7 +15,7 @@ class AttackType(IntEnum):
     VILLAGE_CONQUER = 2
     CAPITAL_CONQUER = 3
     METROPOL_CONQUER = 5
-    KINGS_TOWER_CONQUER = 6
+    KINGTOWER_CONQUER = 6
     CONQUER = 7
     MONUMENT_CONQUER = 8
     LABORATORY_CONQUER = 9
@@ -59,23 +59,36 @@ class AutoSkipCooldownType(IntEnum):
 
 
 class Flank(IntEnum):
-    """Attack-screen flanks (``ClientConstCastle.FLANK_*``)."""
+    """
+    Battle flanks.
+
+    REINFORCEMENT_SUMMARY is not a flank troops stand on; it only appears in
+    the battle log.
+
+    Client: ``ClientConstCastle.FLANK_*`` (bundle line 1004), the summary used by
+    ``CastleBattleLogDetailAdvancedDialog`` (bundle line 135711)
+    """
 
     LEFT = 0
     MIDDLE = 1
     RIGHT = 2
     YARD = 3
     REINFORCEMENT = 4
+    REINFORCEMENT_SUMMARY = 5
 
 
 class CombatEffectType(IntEnum):
     """
-    Effect type ids the attack path reads.
+    Effect type ids the library reads: a subset of the client's effect types.
 
-    Verified against both the client's ``EffectTypeEnum`` and the items
-    ``effecttypes`` table.
+    Names are the client's minus the ``EFFECT_TYPE_`` prefix.
+
+    Client: ``EffectTypeEnum`` (bundle line 1322)
     """
 
+    WALL_BONUS = 6
+    GATE_BONUS = 7
+    MOAT_BONUS = 8
     MELEE_BONUS = 9
     RANGE_BONUS = 10
     WALL_REDUCTION = 19
@@ -84,8 +97,31 @@ class CombatEffectType(IntEnum):
     OFFENSIVE_MELEE_BONUS = 23
     OFFENSIVE_RANGE_BONUS = 24
     ATTACK_UNIT_AMOUNT_FLANK = 28
+    DEFENSE_BONUS = 31
+    DEFENSE_BOOST_YARD = 32
     ATTACK_UNIT_AMOUNT_FRONT = 34
-    REINFORCEMENT_BONUS = 179
-    REINFORCEMENT_BOOST = 180
     ATTACK_BONUS = 36
+    DEFENSE_SUPPORT_UNITS = 47
+    DEFENSE_BOOST_FRONT = 49
+    DEFENSE_BOOST_FLANK = 50
+    ATTACK_SUPPORT_UNITS = 51
+    RECRUITMENT_COST_DECREASE = 70
+    RECRUITMENT_SPEED_BOOST = 71
+    TOOL_PRODUCTION_SPEED_BOOST = 72
+    UNIT_SPEED_BONUS = 102
+    ATTACK_BONUS_UNIT = 148
+    SPEED_BOOST_UNIT = 149
+    LOOT_VALUE_BOOST_UNIT = 150
+    FAME_BOOST_UNIT = 154
     ADDITIONAL_WAVE = 156
+    CURRENCY_LOOT_BOOST = 168
+    UNLOCK_ABILITY = 178
+    ATTACK_UNIT_AMOUNT_REINFORCEMENT_BONUS = 179
+    ATTACK_UNIT_AMOUNT_REINFORCEMENT_BOOST = 180
+    CRAFTING_QUEUE_PRODUCTION_BOOST = 188
+    RESERVE_UNIT_KILL = 208
+    SPAWN_RESERVE_UNIT = 213
+    MUTATE_RESERVE_UNIT = 214
+    MELEE_DEFENSE_MALUS = 215
+    RANGE_DEFENSE_MALUS = 217
+    ABILITY_PLUNDER = 1026

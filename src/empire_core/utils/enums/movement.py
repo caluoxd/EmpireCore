@@ -9,7 +9,7 @@ class MovementType(IntEnum):
     A returning army is not a type: any type can be on its way home, which is
     the movement's ``D`` flag.
 
-    Client: ``ClientConstCastle`` MOVEMENTTYPE_* constants.
+    Client: ``ClientConstCastle.MOVEMENTTYPE_*`` (bundle line 1004)
     """
 
     ATTACK = 0
@@ -39,7 +39,6 @@ class MovementType(IntEnum):
     ABG_ALLIANCE_TOWER_SUPPORT = 32
     ABG_ALLIANCE_TOWER_ATTACK = 33
     WOLFKING_TAUNT_ATTACK = 34
-    UNKNOWN = -1
 
     @property
     def is_attack(self) -> bool:
