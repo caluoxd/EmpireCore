@@ -2,6 +2,772 @@
 
 <!-- version list -->
 
+## v0.42.0 (2026-09-30)
+
+### Bug Fixes
+
+- Mailbox and help list from the login data, join_area on the castle service, event leaderboard
+  leagues ([#242](https://github.com/eschnitzler/EmpireCore/pull/242),
+  [`4cb3c19`](https://github.com/eschnitzler/EmpireCore/commit/4cb3c1947e70a6f9b2064a628f01f0bcba7b370a))
+
+- **alliance**: Fill the help list from the login data and stop sending ahl
+  ([#242](https://github.com/eschnitzler/EmpireCore/pull/242),
+  [`4cb3c19`](https://github.com/eschnitzler/EmpireCore/commit/4cb3c1947e70a6f9b2064a628f01f0bcba7b370a))
+
+- **alliance**: Rank 0 is the alliance leader, not rank 8
+  ([#247](https://github.com/eschnitzler/EmpireCore/pull/247),
+  [`a2848ec`](https://github.com/eschnitzler/EmpireCore/commit/a2848ec38fa530ea0e07b1f9efe7add33f77c708))
+
+- **alliance**: Read bookmarks flat, and read your own bookmarks too
+  ([#247](https://github.com/eschnitzler/EmpireCore/pull/247),
+  [`a2848ec`](https://github.com/eschnitzler/EmpireCore/commit/a2848ec38fa530ea0e07b1f9efe7add33f77c708))
+
+- **alliance,player,messages**: Follow up the alliance review
+  ([#247](https://github.com/eschnitzler/EmpireCore/pull/247),
+  [`a2848ec`](https://github.com/eschnitzler/EmpireCore/commit/a2848ec38fa530ea0e07b1f9efe7add33f77c708))
+
+- **attack**: Take every camp's wall, gate and moat protection from its row, and its level where the
+  row gives it ([#246](https://github.com/eschnitzler/EmpireCore/pull/246),
+  [`b9baf27`](https://github.com/eschnitzler/EmpireCore/commit/b9baf275a21b5da7688ca92a7b429dc6f5863ff6))
+
+- **auth**: Keep login secrets out of reprs and logs, and log login refusals at debug
+  ([#244](https://github.com/eschnitzler/EmpireCore/pull/244),
+  [`b581bec`](https://github.com/eschnitzler/EmpireCore/commit/b581bec346942b8f40471fc5403f2c01dc44f384))
+
+- **auth**: Model the auth requests and replies on the client's VOs
+  ([#244](https://github.com/eschnitzler/EmpireCore/pull/244),
+  [`b581bec`](https://github.com/eschnitzler/EmpireCore/commit/b581bec346942b8f40471fc5403f2c01dc44f384))
+
+- **auth**: Send lpp as the client does, with the email under MAIL
+  ([#244](https://github.com/eschnitzler/EmpireCore/pull/244),
+  [`b581bec`](https://github.com/eschnitzler/EmpireCore/commit/b581bec346942b8f40471fc5403f2c01dc44f384))
+
+- **castle**: Move join_area to the castle service and return the joined area's state
+  ([#242](https://github.com/eschnitzler/EmpireCore/pull/242),
+  [`4cb3c19`](https://github.com/eschnitzler/EmpireCore/commit/4cb3c1947e70a6f9b2064a628f01f0bcba7b370a))
+
+- **castle**: Name PlayerCastle's occupier as the client and the map rows do
+  ([#246](https://github.com/eschnitzler/EmpireCore/pull/246),
+  [`b9baf27`](https://github.com/eschnitzler/EmpireCore/commit/b9baf275a21b5da7688ca92a7b429dc6f5863ff6))
+
+- **castle**: Read and send castle, building and resource commands as the client does
+  ([#245](https://github.com/eschnitzler/EmpireCore/pull/245),
+  [`81404fc`](https://github.com/eschnitzler/EmpireCore/commit/81404fccfabe88c6d98ff464a543c1af33c7b612))
+
+- **castle**: Read reply blocks as leniently as the client
+  ([#245](https://github.com/eschnitzler/EmpireCore/pull/245),
+  [`81404fc`](https://github.com/eschnitzler/EmpireCore/commit/81404fccfabe88c6d98ff464a543c1af33c7b612))
+
+- **castle**: Send dcl's CD as the client does
+  ([#245](https://github.com/eschnitzler/EmpireCore/pull/245),
+  [`81404fc`](https://github.com/eschnitzler/EmpireCore/commit/81404fccfabe88c6d98ff464a543c1af33c7b612))
+
+- **client**: Ask for movements only after an mvf push, as the client does
+  ([#243](https://github.com/eschnitzler/EmpireCore/pull/243),
+  [`bd18972`](https://github.com/eschnitzler/EmpireCore/commit/bd1897216f9995c602b82c9f7d97a9a9cf1fe24f))
+
+- **client**: Hand only successful replies to on_response handlers
+  ([#243](https://github.com/eschnitzler/EmpireCore/pull/243),
+  [`bd18972`](https://github.com/eschnitzler/EmpireCore/commit/bd1897216f9995c602b82c9f7d97a9a9cf1fe24f))
+
+- **client,state**: Re-list movements after a login, announce each attack once, ignore late drop
+  reports ([#243](https://github.com/eschnitzler/EmpireCore/pull/243),
+  [`bd18972`](https://github.com/eschnitzler/EmpireCore/commit/bd1897216f9995c602b82c9f7d97a9a9cf1fe24f))
+
+- **gamedata**: Read horse rows as the travel booster does
+  ([#259](https://github.com/eschnitzler/EmpireCore/pull/259),
+  [`bd6fb65`](https://github.com/eschnitzler/EmpireCore/commit/bd6fb65c15b14bcb283185d3bff344e0903d023f))
+
+- **login**: Keep an slt login token whatever JSON type it arrives as
+  ([#244](https://github.com/eschnitzler/EmpireCore/pull/244),
+  [`b581bec`](https://github.com/eschnitzler/EmpireCore/commit/b581bec346942b8f40471fc5403f2c01dc44f384))
+
+- **login**: Name a refused login's GGEError and keep its code on LoginError
+  ([#252](https://github.com/eschnitzler/EmpireCore/pull/252),
+  [`fdd7577`](https://github.com/eschnitzler/EmpireCore/commit/fdd7577f5c006fbf787af21038b26a6b687534c3))
+
+- **login**: Name a refused login's GGEError, and frame requests with the session's zone and room in
+  one place ([#252](https://github.com/eschnitzler/EmpireCore/pull/252),
+  [`fdd7577`](https://github.com/eschnitzler/EmpireCore/commit/fdd7577f5c006fbf787af21038b26a6b687534c3))
+
+- **login**: Require joinOK into the lobby before the version check
+  ([#244](https://github.com/eschnitzler/EmpireCore/pull/244),
+  [`b581bec`](https://github.com/eschnitzler/EmpireCore/commit/b581bec346942b8f40471fc5403f2c01dc44f384))
+
+- **login**: Run the client's handshake and build every frame as the client does
+  ([#244](https://github.com/eschnitzler/EmpireCore/pull/244),
+  [`b581bec`](https://github.com/eschnitzler/EmpireCore/commit/b581bec346942b8f40471fc5403f2c01dc44f384))
+
+- **map**: Read a uap block's peace mode and faction protection too
+  ([#246](https://github.com/eschnitzler/EmpireCore/pull/246),
+  [`b9baf27`](https://github.com/eschnitzler/EmpireCore/commit/b9baf275a21b5da7688ca92a7b429dc6f5863ff6))
+
+- **map**: Read map rows and owner records as the client does
+  ([#246](https://github.com/eschnitzler/EmpireCore/pull/246),
+  [`b9baf27`](https://github.com/eschnitzler/EmpireCore/commit/b9baf275a21b5da7688ca92a7b429dc6f5863ff6))
+
+- **map**: Read map rows per area type, and add fnm, uap and kingdom on every item
+  ([#246](https://github.com/eschnitzler/EmpireCore/pull/246),
+  [`b9baf27`](https://github.com/eschnitzler/EmpireCore/commit/b9baf275a21b5da7688ca92a7b429dc6f5863ff6))
+
+- **map,player**: Read dummy owner records and wsp's gaa block as the client does
+  ([#246](https://github.com/eschnitzler/EmpireCore/pull/246),
+  [`b9baf27`](https://github.com/eschnitzler/EmpireCore/commit/b9baf275a21b5da7688ca92a7b429dc6f5863ff6))
+
+- **messages**: Empty the mailbox only when the current session drops
+  ([#247](https://github.com/eschnitzler/EmpireCore/pull/247),
+  [`a2848ec`](https://github.com/eschnitzler/EmpireCore/commit/a2848ec38fa530ea0e07b1f9efe7add33f77c708))
+
+- **messages**: Fill the mailbox from the login data's sne section
+  ([#242](https://github.com/eschnitzler/EmpireCore/pull/242),
+  [`4cb3c19`](https://github.com/eschnitzler/EmpireCore/commit/4cb3c1947e70a6f9b2064a628f01f0bcba7b370a))
+
+- **messages**: Tell spy logs by MessageType and read their header decoded
+  ([#247](https://github.com/eschnitzler/EmpireCore/pull/247),
+  [`a2848ec`](https://github.com/eschnitzler/EmpireCore/commit/a2848ec38fa530ea0e07b1f9efe7add33f77c708))
+
+- **network**: End the receive loop cleanly whatever stops it
+  ([#255](https://github.com/eschnitzler/EmpireCore/pull/255),
+  [`a1c67f9`](https://github.com/eschnitzler/EmpireCore/commit/a1c67f91e7a0301d6cb1a702a0521347290b2224))
+
+- **network**: Keep the session when splitting a message into packets fails
+  ([#255](https://github.com/eschnitzler/EmpireCore/pull/255),
+  [`a1c67f9`](https://github.com/eschnitzler/EmpireCore/commit/a1c67f91e7a0301d6cb1a702a0521347290b2224))
+
+- **network**: Run one request per command at a time and check gdi replies
+  ([#243](https://github.com/eschnitzler/EmpireCore/pull/243),
+  [`bd18972`](https://github.com/eschnitzler/EmpireCore/commit/bd1897216f9995c602b82c9f7d97a9a9cf1fe24f))
+
+- **network**: Send nothing once the lock wait used up the timeout, refuse the lock on the receive
+  thread ([#243](https://github.com/eschnitzler/EmpireCore/pull/243),
+  [`bd18972`](https://github.com/eschnitzler/EmpireCore/commit/bd1897216f9995c602b82c9f7d97a9a9cf1fe24f))
+
+- **network**: Split the message stream into packets as the client does
+  ([#243](https://github.com/eschnitzler/EmpireCore/pull/243),
+  [`bd18972`](https://github.com/eschnitzler/EmpireCore/commit/bd1897216f9995c602b82c9f7d97a9a9cf1fe24f))
+
+- **network,state**: Split frames, serialise requests and reset state on a drop as the client does
+  ([#243](https://github.com/eschnitzler/EmpireCore/pull/243),
+  [`bd18972`](https://github.com/eschnitzler/EmpireCore/commit/bd1897216f9995c602b82c9f7d97a9a9cf1fe24f))
+
+- **player**: Encode a player search's name as chat text, as the client does
+  ([#247](https://github.com/eschnitzler/EmpireCore/pull/247),
+  [`a2848ec`](https://github.com/eschnitzler/EmpireCore/commit/a2848ec38fa530ea0e07b1f9efe7add33f77c708))
+
+- **player**: Read the owner record as WorldMapOwnerInfoVO does
+  ([#247](https://github.com/eschnitzler/EmpireCore/pull/247),
+  [`a2848ec`](https://github.com/eschnitzler/EmpireCore/commit/a2848ec38fa530ea0e07b1f9efe7add33f77c708))
+
+- **player**: Say which players a bulk lookup found, which failed and which timed out
+  ([#247](https://github.com/eschnitzler/EmpireCore/pull/247),
+  [`a2848ec`](https://github.com/eschnitzler/EmpireCore/commit/a2848ec38fa530ea0e07b1f9efe7add33f77c708))
+
+- **pool**: Free the account when a login is interrupted
+  ([#243](https://github.com/eschnitzler/EmpireCore/pull/243),
+  [`bd18972`](https://github.com/eschnitzler/EmpireCore/commit/bd1897216f9995c602b82c9f7d97a9a9cf1fe24f))
+
+- **pool**: Make AccountPool thread-safe and take its registry explicitly
+  ([#243](https://github.com/eschnitzler/EmpireCore/pull/243),
+  [`bd18972`](https://github.com/eschnitzler/EmpireCore/commit/bd1897216f9995c602b82c9f7d97a9a9cf1fe24f))
+
+- **protocol**: Drop Packet.iter_from_bytes, which split frames unlike the client
+  ([#244](https://github.com/eschnitzler/EmpireCore/pull/244),
+  [`b581bec`](https://github.com/eschnitzler/EmpireCore/commit/b581bec346942b8f40471fc5403f2c01dc44f384))
+
+- **protocol**: Drop the ani, gfc and sem commands the client no longer has
+  ([#244](https://github.com/eschnitzler/EmpireCore/pull/244),
+  [`b581bec`](https://github.com/eschnitzler/EmpireCore/commit/b581bec346942b8f40471fc5403f2c01dc44f384))
+
+- **protocol**: Rename the login cooldown code as the client does and add codes 454 to 463
+  ([#244](https://github.com/eschnitzler/EmpireCore/pull/244),
+  [`b581bec`](https://github.com/eschnitzler/EmpireCore/commit/b581bec346942b8f40471fc5403f2c01dc44f384))
+
+- **protocol**: Send commands in the joined room and escape them as the client does
+  ([#244](https://github.com/eschnitzler/EmpireCore/pull/244),
+  [`b581bec`](https://github.com/eschnitzler/EmpireCore/commit/b581bec346942b8f40471fc5403f2c01dc44f384))
+
+- **protocol**: Write command JSON and params exactly as the client does
+  ([#244](https://github.com/eschnitzler/EmpireCore/pull/244),
+  [`b581bec`](https://github.com/eschnitzler/EmpireCore/commit/b581bec346942b8f40471fc5403f2c01dc44f384))
+
+- **protocol**: Write outbound frames without a trailing null byte
+  ([#244](https://github.com/eschnitzler/EmpireCore/pull/244),
+  [`b581bec`](https://github.com/eschnitzler/EmpireCore/commit/b581bec346942b8f40471fc5403f2c01dc44f384))
+
+- **ranking**: Require the league for event leaderboard pages and expose each event's league
+  ([#242](https://github.com/eschnitzler/EmpireCore/pull/242),
+  [`4cb3c19`](https://github.com/eschnitzler/EmpireCore/commit/4cb3c1947e70a6f9b2064a628f01f0bcba7b370a))
+
+- **spy**: Cost NPC dungeons without the player floor and match the log to the mission
+  ([#238](https://github.com/eschnitzler/EmpireCore/pull/238),
+  [`3d5b5d8`](https://github.com/eschnitzler/EmpireCore/commit/3d5b5d8c7e6cd94716e4845d18454e144823f0a0))
+
+- **spy**: Model spy reports and the spy screen fully, and add sabotage, auto-spy and reports by id
+  ([#238](https://github.com/eschnitzler/EmpireCore/pull/238),
+  [`3d5b5d8`](https://github.com/eschnitzler/EmpireCore/commit/3d5b5d8c7e6cd94716e4845d18454e144823f0a0))
+
+- **spy**: Name the horse parameter horses_type, as the other senders do
+  ([#238](https://github.com/eschnitzler/EmpireCore/pull/238),
+  [`3d5b5d8`](https://github.com/eschnitzler/EmpireCore/commit/3d5b5d8c7e6cd94716e4845d18454e144823f0a0))
+
+- **spy**: Read ssi's uap block as map's KingdomProtection
+  ([#246](https://github.com/eschnitzler/EmpireCore/pull/246),
+  [`b9baf27`](https://github.com/eschnitzler/EmpireCore/commit/b9baf275a21b5da7688ca92a7b429dc6f5863ff6))
+
+- **spy,messages**: Model spy reports and the spy screen fully, and type spy outcomes
+  ([#238](https://github.com/eschnitzler/EmpireCore/pull/238),
+  [`3d5b5d8`](https://github.com/eschnitzler/EmpireCore/commit/3d5b5d8c7e6cd94716e4845d18454e144823f0a0))
+
+- **state**: Forget the lost session's data when the connection drops
+  ([#243](https://github.com/eschnitzler/EmpireCore/pull/243),
+  [`bd18972`](https://github.com/eschnitzler/EmpireCore/commit/bd1897216f9995c602b82c9f7d97a9a9cf1fe24f))
+
+- **state**: Run state callbacks one at a time, in packet order
+  ([#243](https://github.com/eschnitzler/EmpireCore/pull/243),
+  [`bd18972`](https://github.com/eschnitzler/EmpireCore/commit/bd1897216f9995c602b82c9f7d97a9a9cf1fe24f))
+
+### Build System
+
+- **ci**: Test on Python 3.13 and 3.14 and report coverage
+  ([#243](https://github.com/eschnitzler/EmpireCore/pull/243),
+  [`bd18972`](https://github.com/eschnitzler/EmpireCore/commit/bd1897216f9995c602b82c9f7d97a9a9cf1fe24f))
+
+### Code Style
+
+- Format the new observability and decoding code
+  ([#255](https://github.com/eschnitzler/EmpireCore/pull/255),
+  [`a1c67f9`](https://github.com/eschnitzler/EmpireCore/commit/a1c67f91e7a0301d6cb1a702a0521347290b2224))
+
+### Documentation
+
+- A documentation site with MkDocs Material, and a showcase README
+  ([#260](https://github.com/eschnitzler/EmpireCore/pull/260),
+  [`575f2fa`](https://github.com/eschnitzler/EmpireCore/commit/575f2fa10f864232bcf62db9186179778ffda331))
+
+- Build a documentation site with MkDocs Material
+  ([#260](https://github.com/eschnitzler/EmpireCore/pull/260),
+  [`575f2fa`](https://github.com/eschnitzler/EmpireCore/commit/575f2fa10f864232bcf62db9186179778ffda331))
+
+- Cover the castle-list kingdom lookup, typed market goods and castle horses
+  ([#260](https://github.com/eschnitzler/EmpireCore/pull/260),
+  [`575f2fa`](https://github.com/eschnitzler/EmpireCore/commit/575f2fa10f864232bcf62db9186179778ffda331))
+
+- Drop a private project's name from the changelog and pin MkDocs below 2
+  ([#260](https://github.com/eschnitzler/EmpireCore/pull/260),
+  [`575f2fa`](https://github.com/eschnitzler/EmpireCore/commit/575f2fa10f864232bcf62db9186179778ffda331))
+
+- Rewrite protocol.md from the client and drop docs that describe no real API
+  ([#248](https://github.com/eschnitzler/EmpireCore/pull/248),
+  [`d87e6c7`](https://github.com/eschnitzler/EmpireCore/commit/d87e6c7ae9a60123e89b4b18e5c34bdd1e28f7c9))
+
+- **login**: Say the slt login token arrives just after login() returns
+  ([#244](https://github.com/eschnitzler/EmpireCore/pull/244),
+  [`b581bec`](https://github.com/eschnitzler/EmpireCore/commit/b581bec346942b8f40471fc5403f2c01dc44f384))
+
+- **models**: Name the client code behind every command model
+  ([#240](https://github.com/eschnitzler/EmpireCore/pull/240),
+  [`24768df`](https://github.com/eschnitzler/EmpireCore/commit/24768df2a731dd52af2c494f0b79791921272d03))
+
+- **protocol**: Say outbound frames carry no null byte, and what vck and pin send
+  ([#248](https://github.com/eschnitzler/EmpireCore/pull/248),
+  [`d87e6c7`](https://github.com/eschnitzler/EmpireCore/commit/d87e6c7ae9a60123e89b4b18e5c34bdd1e28f7c9))
+
+- **readme**: Turn the README into a short showcase that links to the docs
+  ([#260](https://github.com/eschnitzler/EmpireCore/pull/260),
+  [`575f2fa`](https://github.com/eschnitzler/EmpireCore/commit/575f2fa10f864232bcf62db9186179778ffda331))
+
+- **state**: Say which thread state callbacks run on and what a drop does to state
+  ([#243](https://github.com/eschnitzler/EmpireCore/pull/243),
+  [`bd18972`](https://github.com/eschnitzler/EmpireCore/commit/bd1897216f9995c602b82c9f7d97a9a9cf1fe24f))
+
+### Features
+
+- Send troops between your own areas, and refuse attacks below the client's minimum army
+  ([#251](https://github.com/eschnitzler/EmpireCore/pull/251),
+  [`3a97e6b`](https://github.com/eschnitzler/EmpireCore/commit/3a97e6b897e58a9ef5b8fd8070af93ea4fd3158c))
+
+- **alliance**: Diplomacy, auto war, the newsletter and donations
+  ([#247](https://github.com/eschnitzler/EmpireCore/pull/247),
+  [`a2848ec`](https://github.com/eschnitzler/EmpireCore/commit/a2848ec38fa530ea0e07b1f9efe7add33f77c708))
+
+- **alliance**: Help list, member management, diplomacy, donations and mail
+  ([#247](https://github.com/eschnitzler/EmpireCore/pull/247),
+  [`a2848ec`](https://github.com/eschnitzler/EmpireCore/commit/a2848ec38fa530ea0e07b1f9efe7add33f77c708))
+
+- **alliance**: Kick, rerank, invite, applications and leave
+  ([#247](https://github.com/eschnitzler/EmpireCore/pull/247),
+  [`a2848ec`](https://github.com/eschnitzler/EmpireCore/commit/a2848ec38fa530ea0e07b1f9efe7add33f77c708))
+
+- **alliance**: Read peace offers, crest layouts, crests and member stats
+  ([#247](https://github.com/eschnitzler/EmpireCore/pull/247),
+  [`a2848ec`](https://github.com/eschnitzler/EmpireCore/commit/a2848ec38fa530ea0e07b1f9efe7add33f77c708))
+
+- **alliance**: Read the alliance help list and send help as the client does
+  ([#247](https://github.com/eschnitzler/EmpireCore/pull/247),
+  [`a2848ec`](https://github.com/eschnitzler/EmpireCore/commit/a2848ec38fa530ea0e07b1f9efe7add33f77c708))
+
+- **attack**: Refuse attacks below the client's minimum army
+  ([#251](https://github.com/eschnitzler/EmpireCore/pull/251),
+  [`3a97e6b`](https://github.com/eschnitzler/EmpireCore/commit/3a97e6b897e58a9ef5b8fd8070af93ea4fd3158c))
+
+- **castle**: Read each castle's usable horses from gpc
+  ([#259](https://github.com/eschnitzler/EmpireCore/pull/259),
+  [`bd6fb65`](https://github.com/eschnitzler/EmpireCore/commit/bd6fb65c15b14bcb283185d3bff344e0903d023f))
+
+- **castle**: Send troops between your own areas with cat as the client does
+  ([#251](https://github.com/eschnitzler/EmpireCore/pull/251),
+  [`3a97e6b`](https://github.com/eschnitzler/EmpireCore/commit/3a97e6b897e58a9ef5b8fd8070af93ea4fd3158c))
+
+- **castle**: Type the goods a market send carries
+  ([#258](https://github.com/eschnitzler/EmpireCore/pull/258),
+  [`2918734`](https://github.com/eschnitzler/EmpireCore/commit/29187340de17f557b65cc3cfb3965d98d33f6d0c))
+
+- **client**: Add on_disconnect and remove_disconnect_callback
+  ([#243](https://github.com/eschnitzler/EmpireCore/pull/243),
+  [`bd18972`](https://github.com/eschnitzler/EmpireCore/commit/bd1897216f9995c602b82c9f7d97a9a9cf1fe24f))
+
+- **config**: Build the network.xml URL from the client's host parts
+  ([#244](https://github.com/eschnitzler/EmpireCore/pull/244),
+  [`b581bec`](https://github.com/eschnitzler/EmpireCore/commit/b581bec346942b8f40471fc5403f2c01dc44f384))
+
+- **config**: Read the server list from network.xml
+  ([#244](https://github.com/eschnitzler/EmpireCore/pull/244),
+  [`b581bec`](https://github.com/eschnitzler/EmpireCore/commit/b581bec346942b8f40471fc5403f2c01dc44f384))
+
+- **login**: Run the client's handshake, with its version check, timings and token
+  ([#244](https://github.com/eschnitzler/EmpireCore/pull/244),
+  [`b581bec`](https://github.com/eschnitzler/EmpireCore/commit/b581bec346942b8f40471fc5403f2c01dc44f384))
+
+- **map**: Find map objects with fnm as the client asks, read uap and join areas with jaa
+  ([#246](https://github.com/eschnitzler/EmpireCore/pull/246),
+  [`b9baf27`](https://github.com/eschnitzler/EmpireCore/commit/b9baf275a21b5da7688ca92a7b429dc6f5863ff6))
+
+- **messages**: Name the mailbox message types and decode headers as the client does
+  ([#247](https://github.com/eschnitzler/EmpireCore/pull/247),
+  [`a2848ec`](https://github.com/eschnitzler/EmpireCore/commit/a2848ec38fa530ea0e07b1f9efe7add33f77c708))
+
+- **messages**: Read, mark, archive, delete and send mail
+  ([#247](https://github.com/eschnitzler/EmpireCore/pull/247),
+  [`a2848ec`](https://github.com/eschnitzler/EmpireCore/commit/a2848ec38fa530ea0e07b1f9efe7add33f77c708))
+
+- **movements**: Keep a spy movement's S block on tracked movements
+  ([#238](https://github.com/eschnitzler/EmpireCore/pull/238),
+  [`3d5b5d8`](https://github.com/eschnitzler/EmpireCore/commit/3d5b5d8c7e6cd94716e4845d18454e144823f0a0))
+
+- **movements**: Recall a movement with mcm as the client does
+  ([#250](https://github.com/eschnitzler/EmpireCore/pull/250),
+  [`4569440`](https://github.com/eschnitzler/EmpireCore/commit/456944047d4350536716896821df102f2c0c0d93))
+
+- **network**: Refuse to wait for a reply on the receive thread
+  ([#243](https://github.com/eschnitzler/EmpireCore/pull/243),
+  [`bd18972`](https://github.com/eschnitzler/EmpireCore/commit/bd1897216f9995c602b82c9f7d97a9a9cf1fe24f))
+
+- **network**: Tell waiting calls what ended the connection
+  ([#261](https://github.com/eschnitzler/EmpireCore/pull/261),
+  [`3efb59b`](https://github.com/eschnitzler/EmpireCore/commit/3efb59bcc147b6a135553ce881a1734efb5a615b))
+
+- **protocol**: Take only the reply that names the request for more commands
+  ([#255](https://github.com/eschnitzler/EmpireCore/pull/255),
+  [`a1c67f9`](https://github.com/eschnitzler/EmpireCore/commit/a1c67f91e7a0301d6cb1a702a0521347290b2224))
+
+- **ranking**: Add llsw and slse, and check the library's commands against the client
+  ([#248](https://github.com/eschnitzler/EmpireCore/pull/248),
+  [`d87e6c7`](https://github.com/eschnitzler/EmpireCore/commit/d87e6c7ae9a60123e89b4b18e5c34bdd1e28f7c9))
+
+- **ranking**: Add llsw and slse, and send the alliance event keys
+  ([#248](https://github.com/eschnitzler/EmpireCore/pull/248),
+  [`d87e6c7`](https://github.com/eschnitzler/EmpireCore/commit/d87e6c7ae9a60123e89b4b18e5c34bdd1e28f7c9))
+
+- **spy**: Ask ssi once unless told to wait for spies
+  ([#255](https://github.com/eschnitzler/EmpireCore/pull/255),
+  [`a1c67f9`](https://github.com/eschnitzler/EmpireCore/commit/a1c67f91e7a0301d6cb1a702a0521347290b2224))
+
+- **state**: Apply the castle list a faction join reply carries
+  ([#257](https://github.com/eschnitzler/EmpireCore/pull/257),
+  [`00af2ba`](https://github.com/eschnitzler/EmpireCore/commit/00af2baa7ea6855227fd728501736e10abbdba4c))
+
+- **state,network**: Expose the callback queue depth and the degraded-frame counts
+  ([#255](https://github.com/eschnitzler/EmpireCore/pull/255),
+  [`a1c67f9`](https://github.com/eschnitzler/EmpireCore/commit/a1c67f91e7a0301d6cb1a702a0521347290b2224))
+
+### Performance Improvements
+
+- Handle high-load traffic, and drop waits the client doesn't have
+  ([#255](https://github.com/eschnitzler/EmpireCore/pull/255),
+  [`a1c67f9`](https://github.com/eschnitzler/EmpireCore/commit/a1c67f91e7a0301d6cb1a702a0521347290b2224))
+
+- **attack**: Stop rejoining the attacking castle after fill_attack scans
+  ([#255](https://github.com/eschnitzler/EmpireCore/pull/255),
+  [`a1c67f9`](https://github.com/eschnitzler/EmpireCore/commit/a1c67f91e7a0301d6cb1a702a0521347290b2224))
+
+- **map**: Keep owner castle positions as named tuples
+  ([#255](https://github.com/eschnitzler/EmpireCore/pull/255),
+  [`a1c67f9`](https://github.com/eschnitzler/EmpireCore/commit/a1c67f91e7a0301d6cb1a702a0521347290b2224))
+
+- **map**: Scan without pacing and back off only when a chunk fails
+  ([#255](https://github.com/eschnitzler/EmpireCore/pull/255),
+  [`a1c67f9`](https://github.com/eschnitzler/EmpireCore/commit/a1c67f91e7a0301d6cb1a702a0521347290b2224))
+
+- **network**: Decode messages once, as the client does, without websocket-client's UTF-8 check
+  ([#255](https://github.com/eschnitzler/EmpireCore/pull/255),
+  [`a1c67f9`](https://github.com/eschnitzler/EmpireCore/commit/a1c67f91e7a0301d6cb1a702a0521347290b2224))
+
+- **network**: Hand whole packets straight through when nothing is pending
+  ([#255](https://github.com/eschnitzler/EmpireCore/pull/255),
+  [`a1c67f9`](https://github.com/eschnitzler/EmpireCore/commit/a1c67f91e7a0301d6cb1a702a0521347290b2224))
+
+- **network**: Keep split packets as chunks instead of rescanning the buffer
+  ([#243](https://github.com/eschnitzler/EmpireCore/pull/243),
+  [`bd18972`](https://github.com/eschnitzler/EmpireCore/commit/bd1897216f9995c602b82c9f7d97a9a9cf1fe24f))
+
+- **network**: Read system messages from their opening tag, not the whole buffer
+  ([#255](https://github.com/eschnitzler/EmpireCore/pull/255),
+  [`a1c67f9`](https://github.com/eschnitzler/EmpireCore/commit/a1c67f91e7a0301d6cb1a702a0521347290b2224))
+
+- **player**: Fetch bulk player details without a delay between requests
+  ([#255](https://github.com/eschnitzler/EmpireCore/pull/255),
+  [`a1c67f9`](https://github.com/eschnitzler/EmpireCore/commit/a1c67f91e7a0301d6cb1a702a0521347290b2224))
+
+- **state**: Scan movements only once one is due
+  ([#255](https://github.com/eschnitzler/EmpireCore/pull/255),
+  [`a1c67f9`](https://github.com/eschnitzler/EmpireCore/commit/a1c67f91e7a0301d6cb1a702a0521347290b2224))
+
+- **state**: Validate a movement wrapper once and build the Movement in one validation
+  ([#255](https://github.com/eschnitzler/EmpireCore/pull/255),
+  [`a1c67f9`](https://github.com/eschnitzler/EmpireCore/commit/a1c67f91e7a0301d6cb1a702a0521347290b2224))
+
+- **state**: Validate a movement's record once, not again inside its wrapper
+  ([#255](https://github.com/eschnitzler/EmpireCore/pull/255),
+  [`a1c67f9`](https://github.com/eschnitzler/EmpireCore/commit/a1c67f91e7a0301d6cb1a702a0521347290b2224))
+
+### Refactoring
+
+- Name the horse booster field horse_booster_id everywhere
+  ([#256](https://github.com/eschnitzler/EmpireCore/pull/256),
+  [`8b53726`](https://github.com/eschnitzler/EmpireCore/commit/8b537266da8007d67caa00cfdaaeecc743644608))
+
+- Remove the unused async storage module
+  ([#243](https://github.com/eschnitzler/EmpireCore/pull/243),
+  [`bd18972`](https://github.com/eschnitzler/EmpireCore/commit/bd1897216f9995c602b82c9f7d97a9a9cf1fe24f))
+
+- Spy enums in the enums package, one name for the horse booster
+  ([#256](https://github.com/eschnitzler/EmpireCore/pull/256),
+  [`8b53726`](https://github.com/eschnitzler/EmpireCore/commit/8b537266da8007d67caa00cfdaaeecc743644608))
+
+- **castle**: Take the kingdom from the castle id
+  ([#257](https://github.com/eschnitzler/EmpireCore/pull/257),
+  [`00af2ba`](https://github.com/eschnitzler/EmpireCore/commit/00af2baa7ea6855227fd728501736e10abbdba4c))
+
+- **castle**: Take the kingdom from your castle list, keyed per kingdom
+  ([#257](https://github.com/eschnitzler/EmpireCore/pull/257),
+  [`00af2ba`](https://github.com/eschnitzler/EmpireCore/commit/00af2baa7ea6855227fd728501736e10abbdba4c))
+
+- **client**: Frame requests with the session's zone and room in one place
+  ([#252](https://github.com/eschnitzler/EmpireCore/pull/252),
+  [`fdd7577`](https://github.com/eschnitzler/EmpireCore/commit/fdd7577f5c006fbf787af21038b26a6b687534c3))
+
+- **services**: Build the services directly instead of through a registry
+  ([#239](https://github.com/eschnitzler/EmpireCore/pull/239),
+  [`4e584c8`](https://github.com/eschnitzler/EmpireCore/commit/4e584c872d95c9fcf7be00c2b6fcf37deea13563))
+
+- **spy**: Define SpyStep and SpyOutcome in the enums package
+  ([#256](https://github.com/eschnitzler/EmpireCore/pull/256),
+  [`8b53726`](https://github.com/eschnitzler/EmpireCore/commit/8b537266da8007d67caa00cfdaaeecc743644608))
+
+### Testing
+
+- Replace live-looking ids and coordinates across the tests with one made-up set
+  ([#241](https://github.com/eschnitzler/EmpireCore/pull/241),
+  [`cf6f711`](https://github.com/eschnitzler/EmpireCore/commit/cf6f71175a8b2e76efd4126a4edd05efc21be8c8))
+
+- Replace live-looking ids in the shared test helpers
+  ([#238](https://github.com/eschnitzler/EmpireCore/pull/238),
+  [`3d5b5d8`](https://github.com/eschnitzler/EmpireCore/commit/3d5b5d8c7e6cd94716e4845d18454e144823f0a0))
+
+- Type the new fakes and requests for mypy
+  ([#255](https://github.com/eschnitzler/EmpireCore/pull/255),
+  [`a1c67f9`](https://github.com/eschnitzler/EmpireCore/commit/a1c67f91e7a0301d6cb1a702a0521347290b2224))
+
+- **castle**: Make the gcl and dcl fixtures' player and castle ids and coordinates up
+  ([#245](https://github.com/eschnitzler/EmpireCore/pull/245),
+  [`81404fc`](https://github.com/eschnitzler/EmpireCore/commit/81404fccfabe88c6d98ff464a543c1af33c7b612))
+
+- **client**: Check that a command after the login carries the joined room
+  ([#244](https://github.com/eschnitzler/EmpireCore/pull/244),
+  [`b581bec`](https://github.com/eschnitzler/EmpireCore/commit/b581bec346942b8f40471fc5403f2c01dc44f384))
+
+- **login**: Check the code on every typed login refusal, and cite the client for frame()
+  ([#256](https://github.com/eschnitzler/EmpireCore/pull/256),
+  [`8b53726`](https://github.com/eschnitzler/EmpireCore/commit/8b537266da8007d67caa00cfdaaeecc743644608))
+
+- **movements**: Shape the recalled movement like a live mcm reply
+  ([#250](https://github.com/eschnitzler/EmpireCore/pull/250),
+  [`4569440`](https://github.com/eschnitzler/EmpireCore/commit/456944047d4350536716896821df102f2c0c0d93))
+
+- **protocol**: Check the plain command ids the code uses, too
+  ([#248](https://github.com/eschnitzler/EmpireCore/pull/248),
+  [`d87e6c7`](https://github.com/eschnitzler/EmpireCore/commit/d87e6c7ae9a60123e89b4b18e5c34bdd1e28f7c9))
+
+- **protocol**: Fail when a command the library uses is not in the game client
+  ([#248](https://github.com/eschnitzler/EmpireCore/pull/248),
+  [`d87e6c7`](https://github.com/eschnitzler/EmpireCore/commit/d87e6c7ae9a60123e89b4b18e5c34bdd1e28f7c9))
+
+- **protocol**: Read build_command frames in the command check, and drop the aha and ahc reply
+  exceptions ([#248](https://github.com/eschnitzler/EmpireCore/pull/248),
+  [`d87e6c7`](https://github.com/eschnitzler/EmpireCore/commit/d87e6c7ae9a60123e89b4b18e5c34bdd1e28f7c9))
+
+### Breaking Changes
+
+- Empire_core.storage (GameDatabase and its write queue) and the empire-core[storage] extra are
+  removed.
+
+- Horses_type is renamed horse_booster_id on CreateAttackRequest, SendSupportRequest,
+  SendTroopsRequest, CreateMarketMovementRequest and SendSpyRequest and on the send_attack,
+  send_support, send_troops, send_resources, send_spy_mission, execute_instant_spy and send_sabotage
+  parameters; SendSpyRequest.pay_to_travel is renamed feathers.
+
+- **alliance**: AllianceBookmark -> Bookmark, GetAllianceBookmarksRequest -> GetBookmarksRequest,
+  GetAllianceBookmarksResponse -> GetBookmarksResponse (bookmarks -> alliance_bookmarks, plus
+  own_bookmarks). Bookmark.owner is a PlayerProfileBase instead of a MapObject, and None for a
+  record without an OID. AllianceService.get_bookmarks() returns the GetBookmarksResponse instead of
+  the ABL list.
+
+- **alliance**: AllianceInfo.members is sorted by alliance_rank; a member entry without an OID is
+  skipped instead of failing validation or reading as player 0; application_count defaults to 12
+  instead of 0; GetAllianceInfoResponse.alliance is None for an A block without an AID.
+
+- **alliance**: AllianceService.get_help_requests() and AllianceHelpListRequest are removed; read
+  client.alliance.help_requests, which the login data now fills.
+
+- **alliance**: HelpType.HEAL -> HelpType.HEAL_UNIT and HelpType.RECRUIT ->
+  HelpType.RECRUITMENT_LIST, and RECRUITMENT, BUILD and LOOP_RECRUIT are new. HelpMemberRequest is
+  {LID, KID} (list_id, kingdom_id) and its heal/repair/ recruit constructors are replaced by
+  for_request(entry). AskHelpRequest is {ID, T} (target_id, type_id) with build/repair/recruit/heal
+  constructors taking the ids the client sends. HelpAllRequest sends KID 15 and has no help_type.
+  HelpAllResponse, HelpMemberResponse and HelpRequestNotification are removed.
+  AllianceService.help_all() returns None instead of HelpAllResponse;
+  help_member_heal/help_member_repair/help_member_recruit -> help_member(request);
+  request_heal_help(castle_id) -> request_heal_help(hospital_entry_id, hospital_list_id);
+  request_repair_help(castle_id, building_id) -> request_repair_help(building_id);
+  request_recruit_help(castle_id) -> request_recruit_help(recruit_id, help_type); the request_*
+  methods return bool.
+
+- **alliance**: PlayerProfileBase.is_leader (and so AllianceMember and PlayerOwnerInfo) is True for
+  alliance_rank 0 instead of 8, and is_leader and is_officer are False for a player outside an
+  alliance.
+
+- **alliance,player,messages**: PlayerProfileBase (AllianceMember, PlayerOwnerInfo) loses
+  glory_points (CF), highest_glory_points (HF) and title_index (TI); they stay in model_extra.
+  alliance_rank is int | None, None for a missing or unreadable AR, where it was 0.
+  AllianceInfo.members puts members without a rank last. MessageInfo.seconds_since_sent may be None.
+  Also missing from the bookmark commit's footer: Bookmark.name is str | None defaulting to None,
+  where AllianceBookmark.name was str defaulting to "".
+
+- **attack**: After a fill_attack that scanned the target's tile the session is left on the map;
+  castle-scoped reads other than client.army methods need client.castle.select() first.
+
+- **attack**: Fill_attack raises AttackBelowMinimumError when the waves carry fewer units than the
+  target's minimum, where it used to return them; send_attack(capacity=...) raises it before sending
+  where it used to send and return False.
+
+- **auth**: LoginRequest fields are the client's (NOM, PW, LT, LANG, CONM, RTM, ...):
+  username/password/language/app_id aliases NM/PW/ L/AID become NOM/PW/LANG/AID with the other
+  C2SLoginVO keys added. PlayerData is removed, as are LoginResponse.player and session_id.
+  RegisterRequest sends PN/PW/... instead of NM/PW/EM/L and has no email;
+  RegisterResponse.error_message is replaced by player_id and suggested_names.
+  CheckUsernameAvailableRequest and CheckUsernameExistsRequest send PN and NOM instead of NM;
+  CheckUsernameAvailableResponse.available and CheckUsernameExistsResponse.exists are removed.
+
+- **auth**: PasswordRecoveryRequest has one required field, email, sent as MAIL; the EM and NM
+  fields (email, username) are removed.
+
+- **castle**: Building requests take object_id (OID) instead of castle_id/building_id (CID/BID):
+  BuildRequest.building_type (BT) -> wod_id (WID) plus rotation, pay_with_rubies, private_offer_id
+  and district_object_id; TimeSkipBuildingRequest.item_id (IID) -> minute_skip (MST);
+  UpgradeWallRequest.wall_type (WT) -> object_id; BuyExtensionRequest.extension_type (ET) -> x, y,
+  rotation, expansion_type (CT); CollectExtensionGiftRequest.extension_id (EID) -> object_id;
+  RepairAllRequest has no fields. Every building reply's old fields (building_id, completion_time,
+  new_level, resources_gained, rubies_spent, new_completion_time, buildings_repaired) are replaced
+  by the blocks the client reads. GetResourcesRequest sends AID and KID; GetResourcesResponse is the
+  flat grc block (castle_id, kingdom_id and the 11 resources) instead of resources/storage_capacity;
+  client.castle.get_resources(castle_id, kingdom_id) returns it instead of ResourceAmount | None.
+  GetProductionRequest has no castle_id; client.castle.get_production() takes no castle id and
+  returns CastleProductionArea instead of a (production, consumption) pair. ProductionRates and
+  protocol.base.ResourceAmount are removed. GetResourcesRequest/Response and
+  GetProductionRequest/Response moved from castle.models.actions to castle.models.resources.
+  CastleInfo fields have no AI[n] aliases; CastleInfo.abandon_outpost_seconds,
+  cancel_abandon_seconds and no_abandon_seconds default to 0 instead of -1.
+
+- **castle**: CastleService.send_resources annotates goods as dict[Resource, int] (a valid wire key
+  such as "W" still converts); unknown keys, zero, negative or non-int amounts, an empty dict and
+  goods from more than one tab now raise UnsendableGoodsError instead of being sent.
+
+- **castle**: Client.map.join_area(x, y, kingdom) -> bool is now client.castle.join_area(x, y,
+  kingdom_id) -> SelectCastleResponse, which raises CommandError on a refusal instead of returning
+  False. JoinAreaRequest moves from empire_core.map (and empire_core.map.models) to
+  empire_core.castle (and empire_core.castle.models), and its field kingdom is now kingdom_id;
+  empire_core.protocol.models still exports it.
+
+- **castle**: PlayerCastle.capturer_id -> occupier_id, PlayerCastle.is_being_captured ->
+  is_occupied.
+
+- **castle**: Signatures changed (old -> new):
+
+- **castle**: StorageCapacity fields and Resources.wood_cap, stone_cap and food_cap are int | float
+  instead of int, and ConstructionList.slot_count is int | float. Also missing from the footer of
+  1610ee9: TimeSkipBuildingRequest.item_id (IID, an int) became minute_skip (MST, a str).
+
+- **client**: On_response handlers (and client._register_handler callbacks) no longer receive
+  replies with a non-zero error code.
+
+- **client,state**: Connection.on_disconnect is now called with the generation of the session that
+  dropped (Callable[[int], None]); listeners added with add_disconnect_listener are still called
+  with no arguments. The client sends gam on mvf only; the server pushes gam after login.
+
+- **gamedata**: HorseStats.unit_boost, market_boost and spy_boost are int, not float.
+
+- **login**: A refused login's LoginError message is now "Auth failed: <NAME> (<code>)" instead of
+  "Auth failed with code <code>", and the token refusal message carries the code too.
+
+- **login**: Login() fails with EmpireTimeoutError ("Room join (joinOK) timed out") when joinOK does
+  not arrive, and with LoginError when the joined room is not the lobby, instead of logging in with
+  room
+
+- **login**: LOGIN_DEFAULTS no longer has CONM, RTM or LT; CONM and RTM are measured. The zone login
+  sends the configured client build number. login() sends vck and fails with ClientVersionError when
+  the server refuses the version, and EmpireTimeoutError when vck is not answered; the verChk
+  timeout message is now "API version check (verChk) timed out". The lli name and password are
+  encoded with encode_json_text. A banned account raises AccountBannedError and an account on
+  another server WrongServerError (both LoginError subclasses) instead of a plain LoginError. The
+  missing-credentials message is "Username and a password or login token are required". Generated
+  AIDs are no longer padded to 19 digits.
+
+- **map**: FindNPCRequest (NT, L, KID) -> FindNextMapObjectRequest (area_type/T, kingdom/KID,
+  min_level/LMIN, max_level/LMAX, owner_id/NID). FindNPCResponse (npcs) -> FindNextMapObjectResponse
+  (x, y, area). NPCLocation is removed.
+
+- **map**: MapAreaItem.item_type is MapItemType, and from_list(row, kingdom=Kingdom.GREEN) raises
+  ValueError for an empty row or an area type the client reads no row of. owner_id is int | None
+  (None where the type names no owner; NPC owners stay negative, e.g. -300, instead of -1).
+  location_id is int | None as sent (-300 stays -300). keep/wall/gate/tower/moat_level are None for
+  a type without levels (was 0). is_relocating means a four-field castle row naming a player (was
+  field 19 of a type-1 row); get_moving_flags keys on that player (occupier_id). Removed:
+  MapAreaItem.player_id (use owner_id), has_owner_field (owner_id is not None), capturer_id and
+  is_being_captured (occupier_id, is_occupied), camp_kingdom_id (kingdom), invasion_camp_field
+  (victory_count, or camp_id for daimyo camps), type_name (item_type.name), is_moving_flag,
+  OWNED_AREA_TYPES and FACTION_LANDMARK_TYPES. INVASION_AREA_TYPES includes NOMAD_CAMP.
+  parse_area_rows keeps rows shorter than four fields and counts unreadable ones. ScanResult has a
+  kingdom field after objects. MapObject.area_positions
+
+- **map**: MapScanner.scan_kingdom / scan_chunks and MapService.scan_kingdom / scan_chunks default
+  chunk_delay 0.2 -> 0.0.
+
+- **map**: NoobProtection -> KingdomProtection, and GetMapAreaResponse.noob_protection ->
+  protection. kingdom_id is int | None.
+
+- **map**: OwnerCastlePosition (MapObject, MovementOwner and PlayerProfile castle_positions /
+  village_positions) is a NamedTuple, not a BasePayload: model_dump() / model_validate() /
+  to_payload() and extra keys are gone (use _asdict(), or OwnerCastlePosition(*row)); it compares
+  equal to a plain tuple, and dumping its owner record gives tuples for AP and VP instead of dicts.
+
+- **map,player**: An owner record with a truthy DUM keeps only OID (name "", every other field at
+  its default). SearchPlayerResponse.area is a MapArea (items, owners), not a GetMapAreaResponse.
+  MapAreaItem has a new is_plot_row field that is_relocating reads.
+
+- **messages**: Messages.MESSAGE_TYPE_SPY_PLAYER and MESSAGE_TYPE_SPY_NPC are removed; use
+  MessageType.SPY_PLAYER and MessageType.SPY_NPC. SpyLogHeader.area_name is decoded.
+
+- **network**: Concurrent request()/send(wait=True) callers of the same command are served one at a
+  time, and time queued behind an earlier one counts against their timeout, so a caller can now time
+  out without having sent anything. Test doubles of Connection.request must accept the new accepts
+  keyword.
+
+- **player**: PlayerProfileBase fields renamed or retyped: special_ability -> is_searching_alliance
+  (bool); resource_request_date -> relocation_remaining_seconds; vip_flag (int) -> has_vip_flag
+  (bool); premium_flag (int) -> has_premium_flag (bool); AllianceMember.is_in_ruins -> is_ruin;
+  alliance_id defaults to -1 instead of 0 (GetPlayerInfoResponse.alliance_id too); title_prefix and
+  title_suffix default to None instead of 0 and -1; AllianceMember.name defaults to "" instead of
+  "Unknown".
+
+- **player**: PlayerService.get_player_details_bulk returns a PlayerDetailsBulkResult instead of a
+  dict (the old dict is its found); timeout is now the wait for each reply instead of for all of
+  them (default 5.0 instead of 10.0), and the requests go out one at a time.
+
+- **player**: PlayerService.get_player_details_bulk send_delay default 0.05 -> 0.0.
+
+- **player**: SearchPlayerRequest (and search_player_by_name) sends PN encoded as chat text: ' as
+  &145;, " as &quot;, % as &percnt;, a backslash as %5C. A caller who encoded the name themselves
+  must stop doing so.
+
+- **pool**: AccountPool(registry=None) -> AccountPool(registry); pass an AccountRegistry (load it
+  with registry.load(file_path=...)). The pool no longer falls back to
+  empire_core.accounts.accounts, and AccountPool.registry is a plain attribute.
+
+- **protocol**: GGECommand.ANI, GGECommand.GFC and GGECommand.SEM are removed.
+
+- **protocol**: GGEError.LOGIN_COOLDOWN is renamed to LOGIN_COOLDOWN_ACTIVE.
+  empire_core.config.ServerError is removed; use GGEError.LOGIN_COOLDOWN_ACTIVE instead of
+  ServerError.LOGIN_COOLDOWN.
+
+- **protocol**: Json_text raises ValueError for NaN and infinities, and TypeError for values JSON
+  has no form for; floats are written as JavaScript writes them. build_command sends False as
+  <RoundHouseKick> and True as "true".
+
+- **protocol**: Packet.build_xt(request_id=...) is renamed to room_id= and now defaults to -1
+  instead of 1, as does the new BaseRequest.to_packet(room_id=...). Frames built without a room id
+  now carry -1; pass client.connection.room_id. Request JSON is compact and keeps non-ASCII
+  characters, '%' in any string param is sent as '&percnt;' and "'" is removed.
+
+- **protocol**: Packet.iter_from_bytes is removed.
+
+- **protocol**: Packet.to_bytes() no longer appends "\0".
+
+- **protocol**: Send()/request_packet() for gaa, ssi, ain, grc, dfc, mcm, jaa (by position), csm,
+  cra, cds and cat no longer return a successful reply that names another request; they wait for the
+  matching one and raise EmpireTimeoutError if none comes. A gaa reply without KID that has rows is
+  refused.
+
+- **ranking**: League_type_id no longer defaults to -1 on RankingService.get_ranking_list,
+  get_own_ranking_page and get_ranking_window, nor on GetRankingListRequest (llsp) and
+  GetRankingWindowRequest (llsw); pass client.events.get_league_id(event_id) for the event's league,
+  or -1 for the donation ranking.
+
+- **services**: Empire_core.services.register_service, get_registered_services, the registry behind
+  them, BaseService._service_name and EmpireClient._services are removed. A service is added by
+  building it in EmpireClient._attach_services().
+
+- **spy**: SpyProtection is removed; SpyTargetArea.protection is a KingdomProtection.
+  beginner_protection_seconds -> noob_protection_seconds, is_beginner_protected ->
+  is_noob_protected, faction_protection_status -> protection_status, faction_protection_seconds (int
+  | None) -> protection_seconds (int, 0 when absent).
+
+- **spy**: SpyService.execute_instant_spy no longer waits for spies by default; pass
+  wait_for_spies=8 for the previous behaviour.
+
+- **spy,messages**: Renamed messages models: BattleSpyDataRequest -> GetSpyReportRequest,
+  BattleSpyDataResponse -> SpyReportResponse, SpyCastleInfo -> SpyReportArea (castle_name -> name;
+  KL/WL/GL/TL/ML default 0 instead of -1, as int(undefined) in the client; area_type, x and y are
+  required instead of defaulting to -1, area_type a MapItemType; kingdom is a Kingdom defaulting to
+  Kingdom.GREEN instead of -1). BattleSpyDataResponse.target -> SpyReportResponse.area.
+  SpyReportResponse.message_id defaults to None instead of 0. empire_core.SpyCastleInfo is gone;
+  empire_core exports SpyReportArea, SpyReportResponse, SpyOutcome and SpyStep.
+  SendSpyRequest.precision -> accuracy_or_damage; pay_to_travel 1 now sends horses_type -1.
+  SpyResult fields success, reason, spy_data, defending_castellan, target and army -> outcome, step,
+  error, message_id, report, mission (success and army are properties; the report's fields are on
+  report): reason "sne_timeout" -> SpyOutcome.TIMEOUT, "ssi_failed_*"/"csm_failed_*"/"bsd_failed_*"
+  -> COMMAND_FAILED with step and error, bsd error 130 or 66 -> NO_SPY_DATA, the others -> the
+  SpyOutcome member of the same name. NPC targets are costed without the 5% floor, so
+  execute_instant_spy can send a different number of spies. SpyScreenInfoResponse counts are read
+  through int(). ForwardSpyLogRequest's payload is {"MID", "PID"} in that order. forward_report
+  returns True for error 167.
+
+- **state**: After an unexpected disconnect or close(), client.state holds no player, castles or
+  movements until the next login refills it; previously the old session's data stayed readable.
+
+- **state**: State callbacks no longer run concurrently; a callback that blocks (waiting for a
+  reply, for example) now delays every callback queued behind it. Hand long work to another thread.
+
+
 ## v0.41.0 (2026-09-30)
 
 ### Bug Fixes
