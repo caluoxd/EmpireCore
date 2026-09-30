@@ -14,12 +14,13 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from pydantic import Field, ValidationError, ValidatorFunctionWrapHandler, field_validator, model_validator
+from pydantic import Field, ValidatorFunctionWrapHandler, field_validator, model_validator
 
 from empire_core.utils.enums import Kingdom
 
+from ..js import ClientInt, js_int
 from .army import SpyPositions, UnitInventory
-from .base import BasePayload, BaseRequest, BaseResponse, ClientInt, client_int
+from .base import BasePayload, BaseRequest, BaseResponse, read_or_none
 from .commanders import Castellan, CommanderRoster
 from .movement import MovementArea
 
@@ -182,7 +183,7 @@ class GetDefenseResponse(BaseResponse):
     def _castellan_id_from_l(cls, data: Any) -> Any:
         # Client: parse_DFC does e.L && (this._lordID = int(e.L.ID)), and {} is truthy
         if isinstance(data, dict) and isinstance(data.get("L"), dict):
-            data = {**data, "listed_castellan_id": client_int(data["L"].get("ID"))}
+            data = {**data, "listed_castellan_id": js_int(data["L"].get("ID"))}
         return data
 
     @field_validator("castellan", mode="wrap")
@@ -190,11 +191,7 @@ class GetDefenseResponse(BaseResponse):
     def _castellan_or_none(cls, value: Any, handler: ValidatorFunctionWrapHandler) -> Castellan | None:
         if not value:
             return None
-        try:
-            return handler(value)
-        except ValidationError:
-            logger.warning("Could not parse the castellan of a dfc reply")
-            return None
+        return read_or_none(handler, value, warn=logger, what="the castellan of a dfc reply")
 
     @property
     def castellan_id(self) -> int:
@@ -396,11 +393,7 @@ class GetSupportDefenseResponse(BaseResponse):
         # Client: LordFactory.createLord returns null for an empty entry
         if not value:
             return None
-        try:
-            return handler(value)
-        except ValidationError:
-            logger.warning("Could not parse the castellan of an sdi reply")
-            return None
+        return read_or_none(handler, value, warn=logger, what="the castellan of an sdi reply")
 
     def get_total_defenders(self) -> int:
         """

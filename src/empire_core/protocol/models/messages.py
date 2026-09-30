@@ -10,10 +10,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
+from ..js import ClientInt, js_int, js_loose_equals
 from .army import SpyPositions
-from .base import BasePayload, BaseRequest, BaseResponse, ClientInt
+from .base import BasePayload, BaseRequest, BaseResponse, read_or_none, readable_list
 from .commanders import Castellan
 
 # =============================================================================
@@ -66,13 +67,15 @@ class MessageInfo(BasePayload):
     def _no_text(cls, value: Any) -> Any:
         return "" if value is None else value
 
-    @field_validator("is_read", "is_archived", "is_forwarded", mode="before")
+    @field_validator("is_read", "is_archived", mode="before")
     @classmethod
     def _one_flag(cls, value: Any) -> bool:
-        try:
-            return int(value) == 1
-        except (TypeError, ValueError):
-            return False
+        return js_loose_equals(value, 1)
+
+    @field_validator("is_forwarded", mode="before")
+    @classmethod
+    def _int_one_flag(cls, value: Any) -> bool:
+        return js_int(value) == 1
 
 
 class SystemNotificationEvent(BaseResponse):
@@ -91,13 +94,7 @@ class SystemNotificationEvent(BaseResponse):
     @field_validator("messages", mode="before")
     @classmethod
     def _readable_rows(cls, value: Any) -> Any:
-        rows = []
-        for row in value if isinstance(value, list) else []:
-            try:
-                rows.append(MessageInfo.model_validate(row))
-            except ValidationError:
-                continue
-        return rows
+        return readable_list(MessageInfo, value)
 
 
 # =============================================================================
@@ -198,12 +195,7 @@ class BattleSpyDataResponse(BaseResponse):
     @field_validator("defending_castellan", mode="before")
     @classmethod
     def _readable_castellan(cls, value: Any) -> Any:
-        if not value:
-            return None
-        try:
-            return Castellan.model_validate(value)
-        except ValidationError:
-            return None
+        return read_or_none(Castellan.model_validate, value) if value else None
 
 
 __all__ = [

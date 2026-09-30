@@ -6,11 +6,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import Field, ValidationError, field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from empire_core.utils.enums import MapItemType, SpyType
 
-from .base import BasePayload, BaseRequest, BaseResponse, ClientInt, Position, enum_or_none
+from ..js import ClientInt, js_loose_equals, js_parse_int, js_parse_int_or_zero, js_truthy
+from .base import BasePayload, BaseRequest, BaseResponse, Position, enum_or_none, object_or_none, read_or_none
 from .commanders import Commander
 
 
@@ -25,19 +26,6 @@ class GetMovementsRequest(BaseRequest):
     """
 
     command = "gam"
-
-
-def _truthy(value: Any) -> bool:
-    """The client's ``!!value``."""
-    return bool(value)
-
-
-def _is_one(value: Any) -> bool:
-    """The client's ``1 == value``."""
-    try:
-        return int(value) == 1
-    except (TypeError, ValueError):
-        return False
 
 
 _AREA_LAYOUTS: dict[int, tuple[int | None, int | None, int | None]] = {
@@ -169,12 +157,7 @@ class MovementUnitInfo(BasePayload):
     @classmethod
     def _readable_commander(cls, value: Any) -> Any:
         """An unreadable commander costs only itself, not the wait and advisor details."""
-        if not value:
-            return None
-        try:
-            return Commander.model_validate(value)
-        except ValidationError:
-            return None
+        return read_or_none(Commander.model_validate, value) if value else None
 
 
 MovementGoods = list[tuple[str | int, int]] | list[int]
@@ -244,7 +227,7 @@ class MovementWrapper(BasePayload):
     @field_validator("spy", mode="before")
     @classmethod
     def _no_spy_details(cls, value: Any) -> Any:
-        return value if isinstance(value, dict) else None
+        return object_or_none(value)
 
     @property
     def visible_army(self) -> MovementArmy | None:
@@ -263,7 +246,7 @@ class OwnerCrest(BasePayload):
     @field_validator("is_set", mode="before")
     @classmethod
     def _truthy(cls, value: Any) -> bool:
-        return _truthy(value)
+        return js_truthy(value)
 
     symbol_type: ClientInt = Field(alias="SPT", default=0)
     symbol1: ClientInt = Field(alias="S1", default=0)
@@ -342,20 +325,22 @@ class MovementOwner(BasePayload):
     @field_validator("is_searching_alliance", "has_premium", "has_vip", mode="before")
     @classmethod
     def _truthy_flag(cls, value: Any) -> bool:
-        return _truthy(value)
+        return js_truthy(value)
 
-    @field_validator("is_ruin", "is_dummy", mode="before")
+    @field_validator("is_ruin", mode="before")
+    @classmethod
+    def _parsed_one_flag(cls, value: Any) -> bool:
+        return js_parse_int(value) == 1
+
+    @field_validator("is_dummy", mode="before")
     @classmethod
     def _one_flag(cls, value: Any) -> bool:
-        return _is_one(value)
+        return js_loose_equals(value, 1)
 
     @field_validator("via_refer_a_friend", mode="before")
     @classmethod
-    def _int_flag(cls, value: Any) -> bool:
-        try:
-            return bool(int(value))
-        except (TypeError, ValueError):
-            return False
+    def _parsed_truthy_flag(cls, value: Any) -> bool:
+        return js_parse_int_or_zero(value) != 0
 
 
 class GetMovementsResponse(BaseResponse):

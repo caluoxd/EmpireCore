@@ -4,24 +4,17 @@ Base classes and common types for GGE protocol models.
 GGE Protocol Format:
 - Request: %xt%{zone}%{command}%1%{json_payload}%
 - Response: %{command}%{zone}%{error_code}%{json_payload}%
-
-Special character encoding for text fields (chat messages, etc.):
-- percent -> &percnt;
-- quote -> &quot;
-- apostrophe -> &145;
-- newline -> <br /> or <br>
-- backslash -> %5C
 """
 
 from __future__ import annotations
 
 import json
-import math
-import re
+import logging
+from collections.abc import Callable
 from enum import IntEnum
 from typing import Annotated, Any, ClassVar, TypeVar
 
-from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, field_validator
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, ValidationError, field_validator
 
 # Type variable for generic response payloads
 T = TypeVar("T")
@@ -349,25 +342,74 @@ class ResourceAmount(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
 
-def client_int(value: Any) -> int:
-    """The client's ``int()``: a ``#rrggbb`` string as hex, else ``Math.trunc(Number(value))``, NaN as 0.
+def object_or_none(value: Any) -> Any:
+    """A reply block that is an object, else None: the client reads keys off it only when it is one."""
+    return value if isinstance(value, (dict, BaseModel)) else None
 
-    Client: ``int`` (dll line 16098)
+
+def list_or_empty(value: Any) -> Any:
+    """A reply value that is an array, else no entries."""
+    return value if isinstance(value, list) else []
+
+
+_M = TypeVar("_M", bound=BaseModel)
+
+
+def readable_list(
+    model: type[_M],
+    value: Any,
+    *,
+    accept: Callable[[Any], Any] | None = None,
+    keep: Callable[[Any], Any] | None = None,
+    parse: Callable[[Any], _M] | None = None,
+    warn: logging.Logger | None = None,
+    what: str = "entries",
+) -> list[_M]:
     """
-    if isinstance(value, str) and re.fullmatch(r"#[0-9A-Fa-f]{6}", value):
-        return int(value[1:], 16)
-    if value is None:
-        return 0
-    if isinstance(value, str) and not value.strip():
-        return 0
+    Each entry of an array read as ``model``, so one unreadable entry costs only itself.
+
+    A null entry, or one ``keep`` rejects, is skipped quietly, as the client
+    skips it. One ``accept`` rejects or that fails validation is unreadable:
+    it is skipped too, and with ``warn`` those are counted in one warning that
+    shows the first. Anything but an array reads as no entries.
+    """
+    if not isinstance(value, list):
+        return []
+    read = parse or model.model_validate
+    rows: list[_M] = []
+    failed: list[Any] = []
+    for entry in value:
+        if isinstance(entry, model):
+            rows.append(entry)
+        elif entry is None:
+            continue
+        elif accept is not None and not accept(entry):
+            failed.append(entry)
+        elif keep is not None and not keep(entry):
+            continue
+        else:
+            try:
+                rows.append(read(entry))
+            except ValidationError:
+                failed.append(entry)
+    if warn is not None and failed:
+        warn.warning(f"Skipped {len(failed)}/{len(value)} unreadable {what}, first: {failed[0]!r:.200}")
+    return rows
+
+
+_T = TypeVar("_T")
+
+
+def read_or_none(
+    read: Callable[[Any], _T], value: Any, *, warn: logging.Logger | None = None, what: str = "an entry"
+) -> _T | None:
+    """``read(value)``, or None when validation fails, so an unreadable block costs only itself."""
     try:
-        number = float(value)
-    except (TypeError, ValueError):
-        return 0
-    return 0 if math.isnan(number) or math.isinf(number) else math.trunc(number)
-
-
-ClientInt = Annotated[int, BeforeValidator(client_int)]
+        return read(value)
+    except ValidationError:
+        if warn is not None:
+            warn.warning(f"Could not read {what}")
+        return None
 
 
 class CurrencyTotals(BasePayload):
@@ -393,32 +435,8 @@ class CurrencyTotals(BasePayload):
         return value if isinstance(value, (int, float)) and not isinstance(value, bool) else None
 
 
-def _currency_block(value: Any) -> Any:
-    # parseGCU reads the block only when it is set
-    return value if isinstance(value, (dict, CurrencyTotals)) else None
-
-
-CurrencyBlock = Annotated[CurrencyTotals | None, BeforeValidator(_currency_block)]
+CurrencyBlock = Annotated[CurrencyTotals | None, BeforeValidator(object_or_none)]
 """A ``gcu`` block, or None when a reply sends none or something that is not an object."""
-
-
-def parse_int(value: Any) -> int:
-    """
-    JavaScript's ``parseInt``: the leading integer of the value's text, 0 where it gives NaN.
-
-    ``"12abc"`` reads as 12 and ``"1e3"`` as 1, unlike :func:`client_int`.
-    """
-    if isinstance(value, bool):
-        return 0
-    if isinstance(value, int):
-        return value
-    if isinstance(value, float):
-        return 0 if math.isnan(value) or math.isinf(value) else math.trunc(value)
-    match = re.match(r"\s*([+-]?\d+)", str(value)) if value is not None else None
-    return int(match.group(1)) if match else 0
-
-
-ParseInt = Annotated[int, BeforeValidator(parse_int)]
 
 
 _E = TypeVar("_E", bound=IntEnum)
@@ -452,82 +470,6 @@ class PlayerInfo(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
 
-# Text encoding/decoding utilities for chat messages
-def encode_chat_text(text: str) -> str:
-    """
-    Encode text for sending in chat messages.
-
-    Converts special characters to their encoded forms:
-    - % -> &percnt;
-    - " -> &quot;
-    - ' -> &145;
-    - \n -> <br />
-    - backslash -> %5C
-    """
-    result = text
-    # '%' must be encoded before backslash, otherwise the '%' introduced
-    # by the '%5C' replacement would itself get re-encoded.
-    result = result.replace("%", "&percnt;")
-    result = result.replace("\\", "%5C")
-    result = result.replace('"', "&quot;")
-    result = result.replace("'", "&145;")
-    result = result.replace("\n", "<br />")
-    return result
-
-
-def smartfox_json_text(text: str) -> str:
-    """
-    Encode text the way the client does before it puts it in a command.
-
-    Replaces ``%``, ``'``, ``"``, a carriage return, a backslash and a newline, in
-    that order, and turns tabs into spaces.
-
-    Client: ``TextValide.getValideSmartFoxJSONTextMessage`` (dll line 5817)
-    """
-    result = text.replace("%", "&percnt;").replace("'", "&145;").replace('"', "&quot;")
-    result = result.replace("\r", "<br />").replace("\\", "%5C").replace("\n", "<br />")
-    return result.replace("\t", " ")
-
-
-def decode_chat_text(text: str) -> str:
-    """
-    Decode text received in chat messages.
-
-    Converts encoded forms back to special characters:
-    - &percnt; -> %
-    - &quot; -> "
-    - &145; -> '
-    - <br /> or <br> -> \n
-    - %5C -> backslash
-    """
-    result = text
-    result = result.replace("<br />", "\n")
-    result = result.replace("<br>", "\n")
-    # '%5C' must be decoded before '&percnt;' so a literal '%5C' typed by
-    # a user (encoded as '&percnt;5C') doesn't turn into a backslash.
-    result = result.replace("%5C", "\\")
-    result = result.replace("&percnt;", "%")
-    result = result.replace("&quot;", '"')
-    result = result.replace("&145;", "'")
-    return result
-
-
-def parse_chat_json_message(text: str | None) -> str:
-    """
-    Decode server text the way the client's ``parseChatJSONMessage`` does.
-
-    Replaces ``&percnt;``, ``&quot;``, ``&145;``, ``<br />`` and ``%5C`` in that
-    order and turns square brackets into spaces; nothing reads as ``""``.
-
-    Client: ``TextValide.parseChatJSONMessage`` (dll line 5820)
-    """
-    if not text:
-        return ""
-    result = text.replace("&percnt;", "%").replace("&quot;", '"').replace("&145;", "'")
-    result = result.replace("<br />", "\n").replace("%5C", "\\")
-    return result.replace("[", " ").replace("]", " ")
-
-
 __all__ = [
     # Command registry
     "GGECommand",
@@ -545,13 +487,11 @@ __all__ = [
     "UnitCount",
     "PlayerInfo",
     # Utilities
-    "encode_chat_text",
-    "decode_chat_text",
-    "parse_chat_json_message",
-    "parse_int",
-    "smartfox_json_text",
-    "ParseInt",
     "enum_or_none",
+    "list_or_empty",
+    "object_or_none",
+    "read_or_none",
+    "readable_list",
     # Response registry
     "get_response_model",
     "parse_response",
