@@ -6,7 +6,15 @@ import pytest
 from pydantic import ValidationError
 
 from empire_core.alliance.models.chat import AllianceChatLogResponse, AllianceChatMessageResponse
+from empire_core.alliance.models.help import (
+    AllianceHelpListResponse,
+    AllianceHelpRequestChanged,
+    BuildingHelpParams,
+    HealHelpParams,
+    RecruitHelpParams,
+)
 from empire_core.alliance.models.info import AllianceInfo, AllianceMember, AllianceStorage, GetAllianceInfoResponse
+from empire_core.enums import AllianceRank, HelpType
 from empire_core.protocol.models import parse_response
 
 
@@ -82,13 +90,22 @@ GOLDEN_AIN = {
                 "N": "LeaderGuy",
                 "L": 70,
                 "LL": 812,
-                "AR": 8,
+                "AR": 0,
+                "AID": 190426,
                 "MP": 1200000,
                 "RPT": 0,
                 "AP": [[0, 12345, 640, 655, 1], [2, 22222, 300, 400, 4]],
                 "E": {"BGT": 1, "BGC1": 2, "SPT": 3, "S1": 4, "IS": 1},
             },
-            {"OID": 7002, "N": "OfficerGal", "L": 70, "AR": 4, "RPT": 7200, "AP": [[0, 12346, 641, 656, 1]]},
+            {
+                "OID": 7002,
+                "N": "OfficerGal",
+                "L": 70,
+                "AR": 4,
+                "AID": 190426,
+                "RPT": 7200,
+                "AP": [[0, 12346, 641, 656, 1]],
+            },
         ],
         "AMI": [[7001, 0, 0, 0, 0], [7002, 0, 0, 0, 2]],
     }
@@ -154,6 +171,21 @@ class TestGoldenAllianceInfo:
         assert by_name["OfficerGal"].has_bird is True
         assert by_name["OfficerGal"].bird_end_time is not None
         assert by_name["LeaderGuy"].bird_end_time is None
+
+    @pytest.mark.parametrize(
+        ("rank", "leader", "officer", "enum"),
+        [
+            (0, True, False, AllianceRank.LEADER),
+            (1, False, True, AllianceRank.COLEADER),
+            (7, False, True, AllianceRank.SERGEANT),
+            (8, False, False, AllianceRank.MEMBER),
+            (9, False, False, AllianceRank.APPLICANT),
+            (12, False, False, None),
+        ],
+    )
+    def test_rank_zero_is_the_leader(self, rank, leader, officer, enum):
+        member = AllianceMember.model_validate({"OID": 1, "AID": 5, "AR": rank})
+        assert (member.is_leader, member.is_officer, member.alliance_rank_enum) == (leader, officer, enum)
 
     def test_typed_member_emblem(self):
         leader = GetAllianceInfoResponse.model_validate(GOLDEN_AIN).members[0]
@@ -346,3 +378,149 @@ class TestAllianceLandmarksAndDiplomacy:
             (55, "Other", 3, 1),
             (56, None, 0, 0),
         ]
+
+
+class TestAllianceInfoOffersAndCrests:
+    """AllianceInfoVO.fillFromParamObject's PO and ACLS, and parseAllianceCrestForAlliance's aee."""
+
+    def test_a_demanded_peace_offer(self):
+        info = AllianceInfo.model_validate({"AID": 1, "PO": {"T": -25, "TS": 3600}})
+        assert info.peace_offer is not None
+        assert (info.peace_offer.is_demanded, info.peace_offer.tribute_percentage) == (True, 25)
+        assert info.peace_offer.remaining_seconds == 3600
+
+    def test_an_offered_tribute(self):
+        offer = AllianceInfo.model_validate({"AID": 1, "PO": {"T": 10, "TS": 60}}).peace_offer
+        assert offer is not None and (offer.is_demanded, offer.tribute_percentage) == (False, 10)
+
+    def test_no_peace_offer(self):
+        assert AllianceInfo.model_validate({"AID": 1}).peace_offer is None
+        assert AllianceInfo.model_validate({"AID": 1, "PO": "x"}).peace_offer is None
+
+    def test_crest_layouts(self):
+        info = AllianceInfo.model_validate(
+            {"AID": 1, "ACLS": [{"ACLI": 4, "ACLET": 86400, "ACIA": 1, "ACLCS": [1, 2]}, {"ACLI": 5}, 7]}
+        )
+        assert [(c.layout_id, c.seconds_left, c.is_active, c.colors) for c in info.crest_layouts] == [
+            (4, 86400, True, [1, 2]),
+            (5, 0, False, None),
+        ]
+
+    def test_the_crest_and_its_fallback(self):
+        info = AllianceInfo.model_validate(
+            {"AID": 1, "aee": {"ACCA": {"ACLI": 3, "ACCS": [9, 8]}, "ACFB": {"ACLI": 1, "ACCS": [2]}}}
+        )
+        assert info.crests is not None and info.crests.crest is not None and info.crests.fallback_crest is not None
+        assert (info.crests.crest.layout_id, info.crests.crest.color_ids) == (3, [9, 8])
+        assert info.crests.fallback_crest.layout_id == 1
+
+    def test_a_fallback_needs_both_layout_and_colours(self):
+        crests = AllianceInfo.model_validate({"AID": 1, "aee": {"ACFB": {"ACLI": 1}}}).crests
+        assert crests is not None and (crests.crest, crests.fallback_crest) == (None, None)
+
+
+class TestAllianceInfoMembers:
+    def test_members_are_sorted_by_rank_and_carry_their_ami_row(self):
+        info = AllianceInfo.model_validate(
+            {
+                "AID": 5,
+                "M": [{"OID": 2, "AID": 5, "AR": 8}, {"OID": 1, "AID": 5, "AR": 0}, {"OID": 3, "AID": 5, "AR": 4}],
+                "AMI": [[1, 100, 2, 300, 0, 1, 0, 0, 0, 0, 50], [3, 0, 0, 0, 3]],
+            }
+        )
+        assert [m.player_id for m in info.members] == [1, 3, 2]
+        leader, officer, member = info.members
+        assert leader.member_info is not None and (leader.member_info.given_coins, leader.member_info.daily_fame) == (
+            100,
+            50,
+        )
+        assert (leader.activity_tier, officer.activity_tier, member.activity_tier) == (0, 3, None)
+        assert member.member_info is None
+        assert info.leader is leader
+
+    def test_no_leader(self):
+        assert AllianceInfo.model_validate({"AID": 5, "M": [{"OID": 2, "AID": 5, "AR": 8}]}).leader is None
+
+    def test_application_count_defaults_to_twelve(self):
+        assert AllianceInfo.model_validate({"AID": 1}).application_count == 12
+        assert AllianceInfo.model_validate({"AID": 1, "AA": None}).application_count == 12
+
+    def test_an_alliance_block_without_an_aid_is_none(self):
+        assert GetAllianceInfoResponse.model_validate({"A": {"N": "x"}}).alliance is None
+
+
+class TestAllianceHelpEntries:
+    """As AllianceHelpRequestData.parseHelpRequestEntry (bundle line 133416) reads them."""
+
+    def test_each_help_type_gets_its_params(self):
+        entries = AllianceHelpListResponse.model_validate(
+            {
+                "AHL": [
+                    {"LID": 1, "TID": 1, "OP": {"RID": 4, "AID": 5, "SID": 6, "RLID": 7}},
+                    {"LID": 2, "TID": 2, "OP": {"RID": 8, "T": 1, "AID": 5, "SID": 9}},
+                    {"LID": 3, "TID": 4, "OP": {"KID": 2, "AID": 5, "OID": 10}},
+                ],
+                "TSL": -1,
+            }
+        ).requests
+        assert isinstance(entries[0].params, RecruitHelpParams) and entries[0].params.recruitment_list_id == 7
+        assert isinstance(entries[1].params, HealHelpParams) and entries[1].params.hospital_list_id == 1
+        assert isinstance(entries[2].params, BuildingHelpParams) and entries[2].params.object_id == 10
+        assert [e.help_type_enum for e in entries] == [HelpType.RECRUITMENT, HelpType.HEAL_UNIT, HelpType.BUILD]
+
+    def test_an_entry_the_client_cannot_read_costs_only_itself(self, caplog):
+        with caplog.at_level(logging.WARNING):
+            entries = AllianceHelpListResponse.model_validate(
+                {"AHL": [{"LID": 1, "TID": 9, "OP": {}}, {"LID": 2, "TID": 3}, {"LID": 3, "TID": 3, "OP": {}}]}
+            ).requests
+        assert [e.list_id for e in entries] == [3]
+        assert "2/3 unreadable alliance help requests" in caplog.text
+
+    @pytest.mark.parametrize(("rt", "expected"), [(90, 90), ("90", 90), (-1, -1), (-5, -1), (None, -1)])
+    def test_the_expiry_reads_as_rt_above_minus_one(self, rt, expected):
+        entry = AllianceHelpRequestChanged.model_validate({"LID": 1, "TID": 3, "OP": {}, "RT": rt}).request
+        assert entry is not None and entry.remaining_seconds == expected
+
+    def test_already_confirmed_is_truthy(self):
+        entry = AllianceHelpRequestChanged.model_validate({"LID": 1, "TID": 3, "OP": {}, "AC": 1}).request
+        assert entry is not None and entry.already_confirmed is True
+
+    def test_an_unreadable_push_has_no_request(self):
+        assert AllianceHelpRequestChanged.model_validate({"LID": 1, "TID": 99}).request is None
+
+    def test_the_repair_cooldown(self):
+        assert AllianceHelpListResponse.model_validate({"TSL": -1}).repair_help_cooldown_seconds == 0
+        assert AllianceHelpListResponse.model_validate({"TSL": 800}).repair_help_cooldown_seconds == 10000
+        assert AllianceHelpListResponse.model_validate({"TSL": 20000}).repair_help_cooldown_seconds == 0
+
+
+class TestReviewFollowUps:
+    def test_a_missing_or_garbage_rank_is_no_rank(self):
+        info = AllianceInfo.model_validate(
+            {"AID": 5, "M": [{"OID": 1, "AID": 5}, {"OID": 2, "AID": 5, "AR": "x"}, {"OID": 3, "AID": 5, "AR": 8}]}
+        )
+        # parseInt gives NaN, which never equals 0
+        assert [m.alliance_rank for m in info.members] == [8, None, None]
+        assert info.leader is None
+        assert not any(m.is_leader or m.is_officer for m in info.members)
+        assert all(m.alliance_rank_enum is None for m in info.members[1:])
+
+    def test_members_without_a_rank_go_last(self):
+        info = AllianceInfo.model_validate(
+            {"AID": 5, "M": [{"OID": 1, "AR": 4}, {"OID": 2, "AR": 0}, {"OID": 3}, {"OID": 4, "AR": 8}, {"OID": 5}]}
+        )
+        assert [m.player_id for m in info.members] == [2, 1, 4, 3, 5]
+
+    def test_the_owner_record_does_not_read_cf_hf_or_ti(self):
+        member = AllianceMember.model_validate({"OID": 1, "CF": 3, "HF": 9, "TI": 50})
+        assert not {"glory_points", "highest_glory_points", "title_index"} & set(AllianceMember.model_fields)
+        assert member.model_extra == {"CF": 3, "HF": 9, "TI": 50}
+
+    def test_live_acls_colours_under_accs_stay_extra(self):
+        (layout,) = AllianceInfo.model_validate({"AID": 1, "ACLS": [{"ACLI": 4, "ACCS": [1, 2]}]}).crest_layouts
+        assert layout.colors is None
+        assert layout.model_extra == {"ACCS": [1, 2]}
+
+    def test_a_help_entry_with_a_name_that_is_not_text_is_kept(self):
+        entry = AllianceHelpRequestChanged.model_validate({"LID": 1, "TID": 3, "OP": {}, "PN": 5}).request
+        assert entry is not None and entry.player_name is None

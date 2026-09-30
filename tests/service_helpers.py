@@ -10,6 +10,7 @@ from typing import Any, cast
 
 from empire_core.client.client import EmpireClient
 from empire_core.config import EmpireConfig
+from empire_core.exceptions import EmpireTimeoutError
 from empire_core.network.connection import ResponseWaiter
 from empire_core.protocol.models import AttackWave, WaveFlank
 from empire_core.protocol.packet import Packet
@@ -96,6 +97,7 @@ class ScriptedConnection:
         self.room_id = -1
         self.pushes = pushes or {}
         self.subscribers: dict[str, list[Any]] = {}
+        self.disconnect_listeners: list[Any] = []
         self.connected = True
         self.sent: list[str] = []
         self.requested: list[str] = []
@@ -129,6 +131,9 @@ class ScriptedConnection:
         for pushed in self.pushes.pop(cmd_id, []):
             for callback in list(self.subscribers.get(pushed.command_id or "", [])):
                 callback(pushed)
+        if accepts is not None and result.error_code == 0 and not accepts(result):
+            # Connection leaves a reply the check refuses to other waiters, so this one runs out
+            raise EmpireTimeoutError(f"No {cmd_id} reply accepted")
         return result
 
     def create_waiter(self, cmd_id: str) -> ResponseWaiter:
@@ -163,6 +168,21 @@ class ScriptedConnection:
 
     def disconnect(self) -> None:
         self.connected = False
+
+    generation = 0
+
+    def run_if_current(self, generation: int, action: Any) -> bool:
+        if generation != self.generation:
+            return False
+        action()
+        return True
+
+    def add_disconnect_listener(self, callback: Any) -> None:
+        self.disconnect_listeners.append(callback)
+
+    def remove_disconnect_listener(self, callback: Any) -> None:
+        if callback in self.disconnect_listeners:
+            self.disconnect_listeners.remove(callback)
 
 
 class StubPlayer:
@@ -200,6 +220,9 @@ class StubState:
     def get_all_movements(self) -> list:
         self.events.append("get_all_movements")
         return list(self.movements)
+
+    def reset(self) -> None:
+        self.events.append("reset")
 
 
 def make_client(

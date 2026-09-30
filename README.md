@@ -113,11 +113,43 @@ Services are attached to the client automatically; there is nothing to wire up.
 client.alliance.send_chat("Hello!")
 client.alliance.help_all()
 
+# The alliance help list, kept current from the server's pushes. As the client
+# lists them: skip requests you already helped, your own, and finished ones
+# (progress at the help type's maxHelpersCount in the items data's
+# alliancehelprequests: 3, or 5 for healing and 20 for loop recruiting in v786.03)
+max_helpers = {1: 3, 2: 5, 3: 3, 4: 3, 5: 20, 6: 3}
+my_id = client.state.local_player.id
+for request in client.alliance.help_requests:
+    finished = request.progress >= max_helpers.get(request.help_type, 0)
+    if not (request.already_confirmed or finished or request.player_id == my_id):
+        client.alliance.help_member(request)
+
+# Applications, ranks and the treasury
+from empire_core.protocol.models import AllianceDonation, AllianceRank, Kingdom
+
+for application in client.alliance.get_applications().applications:
+    client.alliance.answer_application(application.player_id, accept=True)
+client.alliance.set_rank(player_id, AllianceRank.SERGEANT)
+client.alliance.donate(castle_id, Kingdom.GREEN, AllianceDonation(wood=1000))
+
 for entry in client.alliance.get_chat_log():
     print(f"{entry.player_name}: {entry.decoded_text}")
 
 # Typed push subscription (detach again with remove_chat_message_callback)
 client.alliance.on_chat_message(lambda msg: print(msg.decoded_text))
+```
+
+### `client.messages`
+
+```python
+# The mailbox, kept current from the server's sne pushes
+for message in client.messages.mailbox:
+    if message.subject is not None and not message.is_read:
+        print(message.sender_name, message.subject, client.messages.read(message.message_id).decoded_body)
+        client.messages.mark_read(message.message_id)
+
+client.messages.send_message("SomePlayer", "Hello", "Want to trade?")
+client.messages.delete_many([m.message_id for m in client.messages.mailbox if m.is_read])
 ```
 
 ### `client.castle`

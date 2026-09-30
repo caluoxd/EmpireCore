@@ -155,9 +155,24 @@ class GGECommand:
 
     # Alliance
     AIN = "ain"  # Get alliance info (includes member list)
-    AHC = "ahc"  # Help member
-    AHA = "aha"  # Help all
-    AHR = "ahr"  # Ask for help (request)
+    AKM = "akm"  # Kick a member
+    ARM = "arm"  # Change a member's rank
+    AIP = "aip"  # Invite a player
+    AAL = "aal"  # Alliance applications
+    AAA = "aaa"  # Answer an application
+    AQI = "aqi"  # Leave the alliance
+    ADP = "adp"  # Change a relation with another alliance
+    ARD = "ard"  # Refuse a diplomacy request
+    SAW = "saw"  # Set auto war
+    ANL = "anl"  # Send the alliance newsletter
+    ADO = "ado"  # Donate to the alliance treasury
+    AHL = "ahl"  # Alliance help list
+    AHH = "ahh"  # Help request added or changed (push)
+    AHD = "ahd"  # Help request removed (push)
+    AHF = "ahf"  # Someone helped your request (push)
+    AHC = "ahc"  # Help one request
+    AHA = "aha"  # Help every request
+    AHR = "ahr"  # Ask for help
 
     # Castle
     GCL = "gcl"  # Get castles list
@@ -250,7 +265,12 @@ class GGECommand:
     SEDE = "sede"  # Select event difficulty
 
     # Messages / notifications
-    SNE = "sne"  # System notification event (push)
+    SNE = "sne"  # New or changed mailbox messages (push)
+    RMS = "rms"  # Read a message
+    MMR = "mmr"  # Mark a message read
+    AMS = "ams"  # Archive a message
+    DMS = "dms"  # Delete messages
+    SMS = "sms"  # Send a message
     BSD = "bsd"  # Battle/spy report data
 
     # Gifts

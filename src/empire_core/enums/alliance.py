@@ -1,6 +1,25 @@
-"""Alliance diplomacy, member presence and help requests."""
+"""Alliance ranks, diplomacy, member presence, help requests and bookmarks."""
 
 from enum import IntEnum
+
+
+class AllianceRank(IntEnum):
+    """
+    A member's rank in an alliance; a lower value is a higher rank.
+
+    Client: ``AllianceConst.RANK_*`` (dll line 18805)
+    """
+
+    LEADER = 0
+    COLEADER = 1
+    MARSHAL = 2
+    TREASURER = 3
+    DIPLOMAT = 4
+    RECRUITER = 5
+    GENERAL = 6
+    SERGEANT = 7
+    MEMBER = 8
+    APPLICANT = 9
 
 
 class DiplomacyStatus(IntEnum):
@@ -31,8 +50,29 @@ class OnlineState(IntEnum):
 
 
 class HelpType(IntEnum):
-    """Types of help requests in alliance."""
+    """
+    What an alliance help request asks for.
 
-    HEAL = 2  # Heal wounded soldiers
-    REPAIR = 3  # Repair building
-    RECRUIT = 6  # Recruit soldiers
+    Client: ``AllianceConst.ALLIANCE_HELP_*`` (dll line 18805)
+    """
+
+    RECRUITMENT = 1
+    HEAL_UNIT = 2
+    REPAIR = 3
+    BUILD = 4
+    LOOP_RECRUIT = 5
+    RECRUITMENT_LIST = 6
+
+
+class BookmarkType(IntEnum):
+    """
+    What a map bookmark marks.
+
+    Client: ``AllianceConst.BOOKMARK_TYPE_*`` (dll line 18805)
+    """
+
+    PLAYER_ENEMY = 0
+    PLAYER_FRIEND = 1
+    ALLIANCE_FREE_ATTACK = 2
+    ALLIANCE_DEFEND = 3
+    ALLIANCE_ATTACK_ORDER = 4

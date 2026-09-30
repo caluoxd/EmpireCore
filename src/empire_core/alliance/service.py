@@ -3,13 +3,16 @@ Alliance service for EmpireCore.
 
 Provides high-level APIs for:
 - Alliance members (get members, online status, last seen)
+- Member management (kick, rank, invite, applications, leave)
+- Diplomacy, auto war, the newsletter and treasury donations
 - Alliance chat (send messages, get history)
-- Alliance help (help members, help all, request help)
+- Alliance help (the help list and its pushes, helping, asking for help)
 """
 
 from __future__ import annotations
 
 import logging
+import threading
 from collections.abc import Callable
 
 from pydantic import ValidationError
@@ -21,20 +24,64 @@ from empire_core.alliance.models.chat import (
     AllianceChatMessageResponse,
     ChatMessageData,
 )
-from empire_core.alliance.models.help import AskHelpRequest, HelpAllRequest, HelpAllResponse, HelpMemberRequest
-from empire_core.alliance.models.info import AllianceMember, GetAllianceInfoRequest, GetAllianceInfoResponse
+from empire_core.alliance.models.diplomacy import (
+    AllianceDonation,
+    ChangeDiplomacyRequest,
+    ChangeDiplomacyResponse,
+    DonateRequest,
+    DonateResponse,
+    RefuseDiplomacyRequest,
+    RefuseDiplomacyResponse,
+    SendNewsletterRequest,
+    SetAutoWarRequest,
+    SetAutoWarResponse,
+)
+from empire_core.alliance.models.help import (
+    AllianceHelpListRequest,
+    AllianceHelpListResponse,
+    AllianceHelpReceived,
+    AllianceHelpRequest,
+    AllianceHelpRequestChanged,
+    AllianceHelpRequestRemoved,
+    AskHelpRequest,
+    HelpAllRequest,
+    HelpMemberRequest,
+)
+from empire_core.alliance.models.info import (
+    AllianceInfo,
+    AllianceMember,
+    GetAllianceInfoRequest,
+    GetAllianceInfoResponse,
+)
+from empire_core.alliance.models.members import (
+    AllianceApplicationListRequest,
+    AllianceApplicationListResponse,
+    AnswerApplicationRequest,
+    InvitePlayerRequest,
+    KickMemberRequest,
+    KickMemberResponse,
+    QuitAllianceRequest,
+    RerankMemberRequest,
+    RerankMemberResponse,
+)
 from empire_core.alliance.models.search import (
-    AllianceBookmark,
     AllianceSearchResult,
-    GetAllianceBookmarksRequest,
-    GetAllianceBookmarksResponse,
+    GetBookmarksRequest,
+    GetBookmarksResponse,
     SearchAllianceRequest,
     SearchAllianceResponse,
 )
+from empire_core.enums import AllianceRank, DiplomacyStatus, HelpType, Kingdom
 from empire_core.exceptions import CommandError, PacketError
+from empire_core.protocol.base import BaseResponse
+from empire_core.protocol.errors import GGEError
 from empire_core.services.base import BaseService, register_service
 
 logger = logging.getLogger(__name__)
+
+AllianceHelpUpdate = (
+    AllianceHelpListResponse | AllianceHelpRequestChanged | AllianceHelpRequestRemoved | AllianceHelpReceived
+)
 
 
 @register_service("alliance")
@@ -51,7 +98,7 @@ class AllianceService(BaseService):
         # Send chat message
         client.alliance.send_chat("Hello alliance!")
 
-        # Help all members
+        # Help every request on the alliance help list
         client.alliance.help_all()
 
         # Subscribe to incoming messages
@@ -66,9 +113,13 @@ class AllianceService(BaseService):
         self._chat_callbacks: list[Callable[[AllianceChatMessageResponse], None]] = []
         self._members: dict[int, AllianceMember] = {}
         self._members_alliance_id: int | None = None
+        self._help_requests: list[AllianceHelpRequest] = []
+        self._help_lock = threading.Lock()
+        self._help_callbacks: list[Callable[[AllianceHelpUpdate], None]] = []
 
-        # Register internal handler for chat messages
         self.on_response("acm", self._handle_chat_message)
+        for command in ("ahl", "ahh", "ahd", "ahf"):
+            self.on_response(command, self._handle_help_update)
 
     # =========================================================================
     # Member Operations
@@ -174,6 +225,183 @@ class AllianceService(BaseService):
             Dict mapping player_id to AllianceMember
         """
         return self._members.copy()
+
+    # =========================================================================
+    # Member Management
+    # =========================================================================
+
+    def kick_member(self, player_id: int, timeout: float = 5.0) -> AllianceInfo | None:
+        """
+        Remove a member from your alliance.
+
+        Args:
+            player_id: The member's ``AllianceMember.player_id``
+
+        Returns:
+            The alliance after the kick, None when the reply carries none
+
+        Raises:
+            CommandError / EmpireTimeoutError / ConnectionClosedError: see :meth:`EmpireClient.send`
+        """
+        return self.request(KickMemberRequest(PID=player_id), KickMemberResponse, timeout=timeout).alliance
+
+    def set_rank(self, player_id: int, rank: AllianceRank, timeout: float = 5.0) -> AllianceInfo | None:
+        """
+        Give a member another rank; ``AllianceRank.LEADER`` hands over the leadership.
+
+        Error 15 (``NO_CHANGE``), which the client takes as nothing to do, returns None.
+
+        Args:
+            player_id: The member's ``AllianceMember.player_id``
+            rank: The new rank
+
+        Returns:
+            The alliance after the change, None when the reply carries none
+
+        Raises:
+            CommandError / EmpireTimeoutError / ConnectionClosedError: see :meth:`EmpireClient.send`
+        """
+        try:
+            return self.request(
+                RerankMemberRequest(PID=player_id, R=rank), RerankMemberResponse, timeout=timeout
+            ).alliance
+        except CommandError as e:
+            if e.error is GGEError.NO_CHANGE:
+                return None
+            raise
+
+    def invite(self, player_id: int, timeout: float = 5.0) -> bool:
+        """
+        Invite a player to your alliance.
+
+        Args:
+            player_id: The player's id, e.g. ``PlayerOwnerInfo.player_id`` from ``client.player.get_player_info()``
+
+        Returns:
+            Whether the server accepted the invitation (error 65: no such player)
+        """
+        return self.execute(InvitePlayerRequest.for_player(player_id), timeout=timeout)
+
+    def get_applications(self, timeout: float = 5.0) -> AllianceApplicationListResponse:
+        """
+        Get your alliance's applications, nearest first, with the applicants' owner records.
+
+        Raises:
+            CommandError / EmpireTimeoutError / ConnectionClosedError: see :meth:`EmpireClient.send`
+        """
+        return self.request(AllianceApplicationListRequest(), AllianceApplicationListResponse, timeout=timeout)
+
+    def answer_application(self, player_id: int, accept: bool, timeout: float = 5.0) -> bool:
+        """
+        Accept or refuse an application.
+
+        Args:
+            player_id: The applicant's ``AllianceApplication.player_id``
+            accept: True to accept, False to refuse
+
+        Returns:
+            Whether the server accepted the answer
+        """
+        return self.execute(AnswerApplicationRequest.create(player_id, accept), timeout=timeout)
+
+    def leave(self, timeout: float = 5.0) -> bool:
+        """
+        Leave your alliance. Once the server accepts, :attr:`help_requests` is emptied.
+
+        Client: ``AQICommand.executeCommand`` (bundle line 121556) calls
+        ``CastleAllianceData.resetMyAlliance`` (bundle line 11620), which cleans the help list
+
+        Returns:
+            Whether the server accepted it
+        """
+        left = self.execute(QuitAllianceRequest(), timeout=timeout)
+        if left:
+            with self._help_lock:
+                self._help_requests = []
+        return left
+
+    # =========================================================================
+    # Diplomacy, Newsletter and Donations
+    # =========================================================================
+
+    def change_diplomacy(
+        self, alliance_id: int, new_status: DiplomacyStatus, tribute: int = 0, timeout: float = 5.0
+    ) -> ChangeDiplomacyResponse:
+        """
+        Change or propose your alliance's relation with another alliance.
+
+        Args:
+            alliance_id: The other alliance, e.g. ``AllianceDiplomacyStatus.alliance_id``
+            new_status: The relation to change to
+            tribute: Only to accept a peace offer: ``PeaceOffer.tribute`` as the offer states it
+
+        Raises:
+            CommandError / EmpireTimeoutError / ConnectionClosedError: see :meth:`EmpireClient.send`
+        """
+        request = ChangeDiplomacyRequest(AID=alliance_id, NDR=new_status, T=tribute)
+        return self.request(request, ChangeDiplomacyResponse, timeout=timeout)
+
+    def refuse_diplomacy(self, alliance_id: int, timeout: float = 5.0) -> AllianceInfo | None:
+        """
+        Refuse another alliance's diplomacy request or peace offer.
+
+        Returns:
+            The other alliance after the refusal, None when the reply carries none
+
+        Raises:
+            CommandError / EmpireTimeoutError / ConnectionClosedError: see :meth:`EmpireClient.send`
+        """
+        return self.request(RefuseDiplomacyRequest(AID=alliance_id), RefuseDiplomacyResponse, timeout=timeout).alliance
+
+    def set_auto_war(self, enabled: bool, timeout: float = 5.0) -> bool:
+        """
+        Turn auto war on or off.
+
+        Returns:
+            Whether auto war is on afterwards
+
+        Raises:
+            CommandError / EmpireTimeoutError / ConnectionClosedError: see :meth:`EmpireClient.send`
+        """
+        return self.request(SetAutoWarRequest(AW=1 if enabled else 0), SetAutoWarResponse, timeout=timeout).auto_war
+
+    def send_newsletter(self, subject: str, text: str, timeout: float = 5.0) -> bool:
+        """
+        Send the alliance newsletter to every member.
+
+        Args:
+            subject: The subject (the client's field takes 20 characters)
+            text: The text; the client does not send an empty one
+
+        Returns:
+            Whether the server accepted it
+
+        Raises:
+            ValueError: ``text`` is empty
+        """
+        if not text:
+            raise ValueError("a newsletter needs text")
+        return self.execute(SendNewsletterRequest.create(subject, text), timeout=timeout)
+
+    def donate(
+        self, castle_id: int, kingdom: Kingdom, donation: AllianceDonation, timeout: float = 5.0
+    ) -> DonateResponse:
+        """
+        Donate resources from one of your castles to the alliance treasury.
+
+        Args:
+            castle_id: The donating castle, ``CastleInfo.castle_id`` from ``client.castle.get_all()``
+            kingdom: The castle's kingdom
+            donation: The amounts; the client sends nothing when every amount is 0
+
+        Raises:
+            ValueError: every amount is 0
+            CommandError / EmpireTimeoutError / ConnectionClosedError: see :meth:`EmpireClient.send`
+        """
+        request = DonateRequest.create(castle_id, kingdom, donation)
+        if not request.resources:
+            raise ValueError("a donation needs an amount above 0")
+        return self.request(request, DonateResponse, timeout=timeout)
 
     # =========================================================================
     # Search Operations
@@ -370,107 +598,157 @@ class AllianceService(BaseService):
     # Help Operations
     # =========================================================================
 
-    def help_all(self, timeout: float = 5.0) -> HelpAllResponse:
+    @property
+    def help_requests(self) -> list[AllianceHelpRequest]:
         """
-        Help all alliance members who need help.
+        The alliance help list as the ahl, ahh and ahd pushes left it.
 
-        Sends a single request that helps all pending help requests
-        (heal, repair, recruit).
+        Client: ``AllianceHelpRequestData`` (bundle line 133359) keeps the list
+        the same way: ahl replaces it, ahh replaces or adds by ``LID``, ahd removes by ``LID``
+        """
+        with self._help_lock:
+            return list(self._help_requests)
+
+    def get_help_requests(self, timeout: float = 5.0) -> AllianceHelpListResponse:
+        """
+        Ask the server for the alliance help list.
+
+        The game client never asks for ahl, it only reads the ahl the server
+        sends; whether the server answers this request is unverified. The
+        reply also refreshes :attr:`help_requests`.
+
+        Raises:
+            CommandError / EmpireTimeoutError / ConnectionClosedError: see :meth:`EmpireClient.send`
+        """
+        return self.request(AllianceHelpListRequest(), AllianceHelpListResponse, timeout=timeout)
+
+    def on_help_update(self, callback: Callable[[AllianceHelpUpdate], None]) -> None:
+        """
+        Call ``callback`` with each ahl, ahh, ahd and ahf the server sends, after :attr:`help_requests` is updated.
+
+        Detach it again with :meth:`remove_help_update_callback`.
+        """
+        self._help_callbacks.append(callback)
+
+    def remove_help_update_callback(self, callback: Callable[[AllianceHelpUpdate], None]) -> None:
+        """Remove a callback registered with :meth:`on_help_update`; a no-op if it is not registered."""
+        try:
+            self._help_callbacks.remove(callback)
+        except ValueError:
+            pass
+
+    def _apply_help_update(self, response: BaseResponse) -> AllianceHelpUpdate | None:
+        if isinstance(response, AllianceHelpListResponse):
+            self._help_requests = list(response.requests)
+        elif isinstance(response, AllianceHelpRequestChanged) and response.request is not None:
+            changed = response.request
+            index = next((i for i, r in enumerate(self._help_requests) if r.list_id == changed.list_id), None)
+            if index is None:
+                self._help_requests.append(changed)
+            else:
+                self._help_requests[index] = changed
+        elif isinstance(response, AllianceHelpRequestRemoved):
+            self._help_requests = [r for r in self._help_requests if r.list_id != response.list_id]
+        elif not isinstance(response, AllianceHelpReceived):
+            return None
+        return response
+
+    def _handle_help_update(self, response: BaseResponse) -> None:
+        with self._help_lock:
+            update = self._apply_help_update(response)
+        if update is None:
+            return
+        for callback in list(self._help_callbacks):
+            try:
+                callback(update)
+            except Exception:
+                logger.exception("Help update callback error")
+
+    def help_member(self, request: AllianceHelpRequest | int) -> None:
+        """
+        Help one request on the help list.
+
+        The client has no handler for an ahc answer, so none is waited for.
+
+        Args:
+            request: An :class:`AllianceHelpRequest` from :attr:`help_requests`, or its ``list_id``
+        """
+        list_id = request.list_id if isinstance(request, AllianceHelpRequest) else request
+        self.send(HelpMemberRequest(LID=list_id))
+
+    def help_all(self) -> None:
+        """
+        Help every request on the help list.
+
+        The client has no handler for an aha answer, so none is waited for.
+        """
+        self.send(HelpAllRequest())
+
+    def request_build_help(self, building_id: int, timeout: float = 5.0) -> bool:
+        """
+        Ask the alliance to help build a building.
+
+        Args:
+            building_id: The building's object id, e.g. ``BuildResponse.building_id``
 
         Returns:
-            HelpAllResponse with helped_count
-
-        Example:
-            response = client.alliance.help_all()
-            print(f"Helped {response.helped_count} members")
+            Whether the server accepted the request
         """
-        return self.request(HelpAllRequest(), HelpAllResponse, timeout=timeout)
+        return self.execute(AskHelpRequest.build(building_id), timeout=timeout)
 
-    def help_member_heal(self, player_id: int, castle_id: int) -> None:
+    def request_repair_help(self, building_id: int, timeout: float = 5.0) -> bool:
         """
-        Help heal a specific member's wounded soldiers.
+        Ask the alliance to help repair a building.
 
         Args:
-            player_id: The member who asked for help. The library does not read
-                help requests yet, so it has no source for this or ``castle_id``
-            castle_id: The member's castle with wounded soldiers
-        """
-        request = HelpMemberRequest.heal(player_id, castle_id)
-        self.send(request)
+            building_id: The damaged building's object id
 
-    def help_member_repair(self, player_id: int, castle_id: int) -> None:
+        Returns:
+            Whether the server accepted the request
         """
-        Help repair a specific member's building.
+        return self.execute(AskHelpRequest.repair(building_id), timeout=timeout)
 
-        Args:
-            player_id: The member who asked for help. The library does not read
-                help requests yet, so it has no source for this or ``castle_id``
-            castle_id: The member's castle with the damaged building
+    def request_recruit_help(self, recruit_id: int, help_type: HelpType, timeout: float = 5.0) -> bool:
         """
-        request = HelpMemberRequest.repair(player_id, castle_id)
-        self.send(request)
-
-    def help_member_recruit(self, player_id: int, castle_id: int) -> None:
-        """
-        Help a specific member with soldier recruitment.
+        Ask the alliance to help with a recruitment.
 
         Args:
-            player_id: The member who asked for help. The library does not read
-                help requests yet, so it has no source for this or ``castle_id``
-            castle_id: The member's castle recruiting soldiers
-        """
-        request = HelpMemberRequest.recruit(player_id, castle_id)
-        self.send(request)
+            recruit_id: The recruitment's id; the library does not read recruitment ids yet
+            help_type: ``HelpType.RECRUITMENT``, ``LOOP_RECRUIT`` or ``RECRUITMENT_LIST``
 
-    def request_heal_help(self, castle_id: int) -> None:
+        Returns:
+            Whether the server accepted the request
         """
-        Request heal help from alliance for a castle.
+        return self.execute(AskHelpRequest.recruit(recruit_id, help_type), timeout=timeout)
 
-        Args:
-            castle_id: One of your castles, from ``client.castle.get_all()``
-                (``CastleInfo.castle_id``) or ``client.state.get_castles()`` (``Castle.id``)
+    def request_heal_help(self, hospital_entry_id: int, hospital_list_id: int, timeout: float = 5.0) -> bool:
         """
-        request = AskHelpRequest.heal(castle_id)
-        self.send(request)
-
-    def request_repair_help(self, castle_id: int, building_id: int) -> None:
-        """
-        Request repair help from alliance for a building.
+        Ask the alliance to help heal wounded units.
 
         Args:
-            castle_id: One of your castles, from ``client.castle.get_all()``
-                (``CastleInfo.castle_id``) or ``client.state.get_castles()`` (``Castle.id``)
-            building_id: The building that needs repair; the library does not read building ids yet
-        """
-        request = AskHelpRequest.repair(castle_id, building_id)
-        self.send(request)
+            hospital_entry_id: The hospital entry; the library does not read hospital entry ids yet
+            hospital_list_id: The hospital list the entry is on
 
-    def request_recruit_help(self, castle_id: int) -> None:
+        Returns:
+            Whether the server accepted the request
         """
-        Request recruit help from alliance for a castle.
-
-        Args:
-            castle_id: One of your castles, from ``client.castle.get_all()``
-                (``CastleInfo.castle_id``) or ``client.state.get_castles()`` (``Castle.id``)
-        """
-        request = AskHelpRequest.recruit(castle_id)
-        self.send(request)
+        return self.execute(AskHelpRequest.heal(hospital_entry_id, hospital_list_id), timeout=timeout)
 
     # =========================================================================
     # Bookmark Operations
     # =========================================================================
 
-    def get_bookmarks(self, timeout: float = 5.0) -> list[AllianceBookmark]:
+    def get_bookmarks(self, timeout: float = 5.0) -> GetBookmarksResponse:
         """
-        Get alliance bookmarks.
-
-        Args:
-            timeout: Timeout in seconds to wait for response
+        Get your own and your alliance's map bookmarks.
 
         Returns:
-            List of AllianceBookmark objects
+            The gbl reply: ``own_bookmarks`` and ``alliance_bookmarks``
+
+        Raises:
+            CommandError / EmpireTimeoutError / ConnectionClosedError: see :meth:`EmpireClient.send`
         """
-        return self.request(GetAllianceBookmarksRequest(), GetAllianceBookmarksResponse, timeout=timeout).bookmarks
+        return self.request(GetBookmarksRequest(), GetBookmarksResponse, timeout=timeout)
 
 
-__all__ = ["AllianceService"]
+__all__ = ["AllianceHelpUpdate", "AllianceService"]

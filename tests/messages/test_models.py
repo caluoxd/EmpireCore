@@ -4,8 +4,8 @@ import copy
 
 import pytest
 
-from empire_core.enums import Kingdom, MapItemType, SpyLogResult, SpyLogType
-from empire_core.messages.models import SPY_VALIDITY, SpyLogHeader
+from empire_core.enums import Kingdom, MapItemType, MessageType, SpyLogResult, SpyLogType
+from empire_core.messages.models import SPY_VALIDITY, SpyLogHeader, repair_header
 from empire_core.protocol.base import parse_response
 from empire_core.protocol.models import (
     ForwardSpyLogRequest,
@@ -31,6 +31,51 @@ class TestSystemNotificationEvent:
     def test_short_row_keeps_the_defaults(self):
         message = MessageInfo.model_validate([7, 12, "x"])
         assert (message.sender_name, message.sender_id, message.is_read) == ("", -1, False)
+
+
+class TestMailboxRows:
+    """Rows as AMessageVO.loadFromParamArray (bundle line 3808) and CastleMessageFactory.parseMessage read them."""
+
+    ROWS = [
+        [501, 1, "Hello &quot;there&quot;<br />again", "Sender", 4242, 30, 0, 0, 0],
+        [502, 22, "Plan [war]", "Leader", 7001, 60, 1, 1, 0],
+        [503, 6, "0+1+2#3", "", -1, 90, 1, 0, 1],
+        [504, 40, "Underworld", "", -1, 5, 0, 0, 0],
+        [505, 999, "future type", "", -1, 5, 0, 0, 0],
+    ]
+
+    def test_types_and_subjects(self):
+        messages = SystemNotificationEvent.model_validate({"MSG": self.ROWS}).messages
+        assert [m.message_type_enum for m in messages] == [
+            MessageType.USER_IN,
+            MessageType.ALLIANCE_NEWSLETTER,
+            MessageType.BATTLE_LOG,
+            MessageType.LOWLEVEL_UNDERWORLD,
+            None,
+        ]
+        # A type the factory has no case for reads as player mail, whose subject is the whole header
+        assert [m.subject for m in messages] == ['Hello "there" again', "Plan  war ", None, "Underworld", "future type"]
+        assert messages[0].decoded_header == 'Hello "there"\nagain'
+        assert messages[2].header == "0+1+2#3"
+
+    # Expectations printed by node running AMessageVO.repairSpecialCharacters and TextValide.parseChatJSONMessage
+    @pytest.mark.parametrize(
+        ("header", "repaired"),
+        [
+            ("100&perc...", "100%..."),
+            ("Say &qu...", 'Say "...'),
+            ("It&14...", "It'..."),
+            ("line<br ...", "line..."),
+            ("path %5...", "path \\..."),
+            ("a&percnt;5C b", "a\\ b"),
+            ("[tag] hi<br />there", " tag  hi\nthere"),
+            ("x &p y ... z &q w ...", "x %..."),
+            ("", ""),
+            (None, ""),
+        ],
+    )
+    def test_a_header_is_repaired_as_the_client_repairs_it(self, header, repaired):
+        assert repair_header(header) == repaired
 
 
 class TestSpyReportResponse:
@@ -168,6 +213,12 @@ class TestSpyLogHeader:
         )
         assert header.spies_lost
         assert not header.has_army_report
+
+    def test_the_header_is_read_decoded(self):
+        header = MessageInfo.model_validate([9001, 3, "2+2+1#1+1001+100&percnt; &quot;Keep&quot;"]).spy_log_header()
+
+        assert header is not None
+        assert header.area_name == '100% "Keep"'
 
     @pytest.mark.parametrize("subtype", [SpyLogType.SABOTAGE, SpyLogType.PLAGUE_MONK])
     @pytest.mark.parametrize("result", [SpyLogResult.ATTACKER_SUCCESS, SpyLogResult.DEFENDER_FAILED])
