@@ -126,7 +126,7 @@ class TestAttackPresets:
 
 class TestAttackRequestShapes:
     def test_cra_keys_follow_the_client_order(self):
-        request = CreateAttackRequest(SX=1, SY=2, TX=3, TY=4, A=[AttackWave()])
+        request = CreateAttackRequest(LID=0, SX=1, SY=2, TX=3, TY=4, A=[AttackWave()])
         # C2SCreateArmyAttackMovementVO initialises SX..CD, then sets A, BKS, AST, RW, ASCT
         assert list(request.to_payload()) == [
             "SX", "SY", "TX", "TY", "KID", "LID", "WT", "HBW", "BPC", "ATT", "AV",
@@ -135,7 +135,7 @@ class TestAttackRequestShapes:
 
     def test_collector_boosters_are_currency_amount_pairs(self):
         # CastleFightScreenVO.addCollectorBooster pushes [boosterKey, amount]
-        request = CreateAttackRequest(SX=1, SY=2, TX=3, TY=4, A=[AttackWave()], BKS=[[31, 2], [32, 0]])
+        request = CreateAttackRequest(LID=0, SX=1, SY=2, TX=3, TY=4, A=[AttackWave()], BKS=[[31, 2], [32, 0]])
         assert request.to_payload()["BKS"] == [[31, 2], [32, 0]]
 
     def test_wave_keys_follow_the_client_order(self):
@@ -276,6 +276,7 @@ class TestInputEnums:
 
     def test_cra_sends_enum_inputs_as_their_numbers(self):
         request = CreateAttackRequest(
+            LID=0,
             SX=1,
             SY=2,
             TX=3,
@@ -291,12 +292,14 @@ class TestInputEnums:
         assert (sent["KID"], sent["ATT"], sent["LP"], sent["ASCT"]) == (2, 1, 8, 1)
 
     def test_cra_refuses_values_the_client_does_not_define(self):
+        base = {"LID": 0, "SX": 1, "SY": 2, "TX": 3, "TY": 4}
         for field, value in (("LP", 12), ("ATT", 4), ("ASCT", 3)):
             with pytest.raises(ValidationError):
-                CreateAttackRequest.model_validate({"SX": 1, "SY": 2, "TX": 3, "TY": 4, field: value})
+                CreateAttackRequest.model_validate({**base, field: value})
+        assert CreateAttackRequest.model_validate({**base, "LP": 5, "ATT": 3, "ASCT": 2}).to_payload()["LP"] == 5
 
     def test_a_kingdom_the_enum_lacks_is_still_sent(self):
-        assert CreateAttackRequest(SX=1, SY=2, TX=3, TY=4, KID=11).to_payload()["KID"] == 11
+        assert CreateAttackRequest(LID=0, SX=1, SY=2, TX=3, TY=4, KID=11).to_payload()["KID"] == 11
         assert GetDungeonAttackInfoRequest(SX=1, SY=2, TX=3, TY=4, KID=11).to_payload()["KID"] == 11
 
     def test_csm_takes_a_spy_type(self):
