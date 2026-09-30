@@ -29,7 +29,6 @@ from empire_core.alliance.models.diplomacy import (
 )
 from empire_core.alliance.models.help import (
     REPAIR_HELP_COOLDOWN_SECONDS,
-    AllianceHelpListRequest,
     AllianceHelpListResponse,
     AllianceHelpReceived,
     AllianceHelpRequest,
@@ -194,6 +193,7 @@ from empire_core.castle.models import (
     GetProductionResponse,
     GetResourcesRequest,
     GetResourcesResponse,
+    JoinAreaRequest,
     KingdomUnitTransferRequest,
     KingdomUnitTransferResponse,
     MarketCastle,
@@ -311,7 +311,6 @@ from empire_core.map.models.areas import (
     FindNextMapObjectResponse,
     GetMapAreaRequest,
     GetMapAreaResponse,
-    JoinAreaRequest,
     KingdomProtection,
     MapArea,
     MapObject,
@@ -718,7 +717,6 @@ __all__ = [
     "BuildingHelpParams",
     "HelpParams",
     "AllianceHelpRequest",
-    "AllianceHelpListRequest",
     "AllianceHelpListResponse",
     "AllianceHelpRequestChanged",
     "AllianceHelpRequestRemoved",

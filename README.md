@@ -113,7 +113,7 @@ Services are attached to the client automatically; there is nothing to wire up.
 client.alliance.send_chat("Hello!")
 client.alliance.help_all()
 
-# The alliance help list, kept current from the server's pushes. As the client
+# The alliance help list, filled from the login data and kept current from the pushes. As the client
 # lists them: skip requests you already helped, your own, and finished ones
 # (progress at the help type's maxHelpersCount in the items data's
 # alliancehelprequests: 3, or 5 for healing and 20 for loop recruiting in v786.03)
@@ -142,7 +142,7 @@ client.alliance.on_chat_message(lambda msg: print(msg.decoded_text))
 ### `client.messages`
 
 ```python
-# The mailbox, kept current from the server's sne pushes
+# The mailbox, filled from the login data and kept current from the server's sne pushes
 for message in client.messages.mailbox:
     if message.subject is not None and not message.is_read:
         print(message.sender_name, message.subject, client.messages.read(message.message_id).decoded_body)
@@ -507,7 +507,9 @@ kingdom it came from (as does `result.kingdom`). A scan moves the session off
 the castle it had joined: `client.army` methods join their castle again
 themselves, anything else castle-scoped needs `client.castle.select()` first.
 `client.map.find_next()` finds the nearest object of one area type, and
-`client.map.join_area()` joins a non-castle object by its position.
+`client.castle.join_area()` joins an outpost, capital, metropolis or faction
+camp by its position, as the client does for the objects it may visit that are
+not castles.
 
 **Re-scanning cheaply.** `result.content_chunks` lists the chunks that held
 items. Feed it back into `client.map.scan_chunks()` to re-scan a known region without

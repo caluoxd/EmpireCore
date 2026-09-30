@@ -59,6 +59,11 @@ logger = logging.getLogger(__name__)
 
 LOBBY_ROOM_NAME = "Lobby"
 
+# Login data sections the client parses as it parses the push of the same name.
+# Client: GBDCommand.exec (bundle line 129381) hands n.sne to parse_SNE and n.ahl to parse_AHL,
+# as SNECommand and AHLCommand do.
+LOGIN_SECTION_PUSHES = ("sne", "ahl")
+
 
 def _joined_room_id(join_ok: Packet) -> int:
     """
@@ -243,6 +248,14 @@ class EmpireClient:
         if packet.error_code != 0 and cmd not in NON_ERROR_COMMANDS:
             return
 
+        if cmd == "gbd" and isinstance(payload, dict):
+            for section in LOGIN_SECTION_PUSHES:
+                if isinstance(body := payload.get(section), dict):
+                    self._dispatch(section, body)
+        self._dispatch(cmd, payload)
+
+    def _dispatch(self, cmd: str, payload: dict[str, Any] | list[Any]) -> None:
+        """Parse a payload and hand it to the handlers registered for ``cmd``, if any."""
         # Only parse and dispatch if handlers are registered. The snapshot is
         # taken under the lock so a concurrent (un)register can neither be
         # observed half-applied nor mutate the list being iterated below.
