@@ -1,0 +1,71 @@
+"""Attacks: sending, pre-calculation, presets and dungeon cooldowns: protocol models."""
+
+from .dungeon_skips import (
+    MinuteSkipDungeonRequest,
+    MinuteSkipDungeonResponse,
+    SkipDungeonCooldownRequest,
+    SkipDungeonCooldownResponse,
+)
+from .info import AttackInfoResponse, AttackTargetArea, GetAttackInfoRequest, GetAttackInfoResponse
+from .presets import (
+    AttackPreset,
+    GetPresetsRequest,
+    GetPresetsResponse,
+    PresetArmy,
+    SavePresetRequest,
+    SavePresetResponse,
+)
+from .send import CreateAttackRequest, CreateAttackResponse
+from .target_info import (
+    GetBossDungeonAttackInfoRequest,
+    GetBossDungeonAttackInfoResponse,
+    GetCapitalConquerInfoRequest,
+    GetCapitalConquerInfoResponse,
+    GetDungeonAttackInfoRequest,
+    GetDungeonAttackInfoResponse,
+    GetIslandAttackInfoRequest,
+    GetIslandAttackInfoResponse,
+    GetLandmarkAttackInfoRequest,
+    GetLandmarkAttackInfoResponse,
+    GetMetropolConquerInfoRequest,
+    GetMetropolConquerInfoResponse,
+    GetOutpostConquerInfoRequest,
+    GetOutpostConquerInfoResponse,
+    GetVillageAttackInfoRequest,
+    GetVillageAttackInfoResponse,
+)
+
+__all__ = [
+    "MinuteSkipDungeonRequest",
+    "MinuteSkipDungeonResponse",
+    "SkipDungeonCooldownRequest",
+    "SkipDungeonCooldownResponse",
+    "AttackTargetArea",
+    "AttackInfoResponse",
+    "GetAttackInfoRequest",
+    "GetAttackInfoResponse",
+    "GetPresetsRequest",
+    "GetPresetsResponse",
+    "AttackPreset",
+    "PresetArmy",
+    "SavePresetRequest",
+    "SavePresetResponse",
+    "CreateAttackRequest",
+    "CreateAttackResponse",
+    "GetDungeonAttackInfoRequest",
+    "GetDungeonAttackInfoResponse",
+    "GetBossDungeonAttackInfoRequest",
+    "GetBossDungeonAttackInfoResponse",
+    "GetLandmarkAttackInfoRequest",
+    "GetLandmarkAttackInfoResponse",
+    "GetVillageAttackInfoRequest",
+    "GetVillageAttackInfoResponse",
+    "GetIslandAttackInfoRequest",
+    "GetIslandAttackInfoResponse",
+    "GetOutpostConquerInfoRequest",
+    "GetOutpostConquerInfoResponse",
+    "GetCapitalConquerInfoRequest",
+    "GetCapitalConquerInfoResponse",
+    "GetMetropolConquerInfoRequest",
+    "GetMetropolConquerInfoResponse",
+]

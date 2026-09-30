@@ -3,11 +3,12 @@ import time
 from collections import deque
 from typing import TYPE_CHECKING, NamedTuple
 
+from empire_core.enums import Kingdom, MapItemType
 from empire_core.exceptions import CommandError, EmpireTimeoutError, NetworkError
+from empire_core.map.models.areas import GetMapAreaRequest, MapObject
+from empire_core.map.models.items import MapAreaItem
 from empire_core.protocol.errors import GGEError
-from empire_core.protocol.models.map import GetMapAreaRequest, MapAreaItem, MapObject
 from empire_core.protocol.packet import Packet
-from empire_core.utils.enums import Kingdom, MapItemType
 
 if TYPE_CHECKING:
     from empire_core.client.client import EmpireClient
