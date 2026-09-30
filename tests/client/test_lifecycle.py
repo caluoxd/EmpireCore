@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import threading
+from typing import Any
 
 import pytest
 from pydantic import BaseModel
@@ -71,7 +72,7 @@ class StubConnection:
     def send(self, data: str) -> None:
         self.sent.append(data)
 
-    def request(self, data: str, cmd_id: str, timeout: float = 5.0) -> Packet:
+    def request(self, data: str, cmd_id: str, timeout: float = 5.0, accepts: Any = None) -> Packet:
         self.requested.append(cmd_id)
         self.request_data[cmd_id] = data
         return self._resolve(cmd_id)
@@ -109,6 +110,9 @@ class StubState:
     def shutdown(self) -> None:
         self.shutdown_count += 1
         self.events.append("state_shutdown")
+
+    def reset(self) -> None:
+        self.events.append("state_reset")
 
 
 def make_client(connection: StubConnection | None = None, state: StubState | None = None) -> EmpireClient:
@@ -291,6 +295,21 @@ class TestOnPacketPayloadTypes:
         assert state.updates == [("sce", [["PTT", 123]])]
         assert seen == []
 
+    def test_an_error_reply_reaches_no_handler(self):
+        # Every client command parses only on success; a refused acm must not
+        # look like a chat message to the chat handler.
+        state = StubState()
+        client = make_client(state=state)
+        seen: list[object] = []
+        client._register_handler("acm", seen.append)
+
+        client._on_packet(xt_packet("acm", '{"CM": {"PN": "p", "MT": "hi"}}', error_code=114))
+        assert seen == []
+        assert [cmd for cmd, _ in state.updates] == ["acm"]
+
+        client._on_packet(xt_packet("acm", '{"CM": {"PN": "p", "MT": "hi"}}'))
+        assert len(seen) == 1
+
 
 class TestSendErrorSurfacing:
     def test_validation_error_becomes_packet_error(self, monkeypatch):
@@ -320,7 +339,7 @@ class TestCloseAndContextManager:
 
         client.close()
 
-        assert events == ["disconnect", "state_shutdown"]
+        assert events == ["disconnect", "state_shutdown", "state_reset"]
 
     def test_context_manager_closes_on_exit(self):
         conn = StubConnection()

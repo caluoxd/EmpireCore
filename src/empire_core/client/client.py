@@ -25,11 +25,19 @@ from empire_core.commanders.service import CommandersService, EquipmentService, 
 from empire_core.config import LOGIN_DEFAULTS, EmpireConfig, ServerError, default_config
 from empire_core.defense.service import DefenseService
 from empire_core.events.service import EventsService
-from empire_core.exceptions import CommandError, EmpireTimeoutError, LoginCooldownError, LoginError, PacketError
+from empire_core.exceptions import (
+    CommandError,
+    EmpireError,
+    EmpireTimeoutError,
+    LoginCooldownError,
+    LoginError,
+    PacketError,
+)
 from empire_core.gamedata import GameData
 from empire_core.map.service import MapService
+from empire_core.movements.models import GetMovementsRequest
 from empire_core.movements.service import MovementsService
-from empire_core.network.connection import Connection
+from empire_core.network.connection import NON_ERROR_COMMANDS, Connection
 from empire_core.player.service import PlayerService
 from empire_core.protocol.models import BaseRequest, BaseResponse, parse_response
 from empire_core.protocol.packet import Packet
@@ -39,6 +47,7 @@ from empire_core.spy.service import SpyService
 from empire_core.state.manager import GameState
 
 logger = logging.getLogger(__name__)
+
 
 T = TypeVar("T", bound=BaseResponse)
 
@@ -166,6 +175,13 @@ class EmpireClient:
 
         # Update internal state (always runs for state-tracked commands)
         self._update_state(cmd, payload)
+        if cmd == "mvf" and packet.error_code == 0:
+            self._request_movements()
+
+        # Client: CastleExtensionResponseCommand.execute (bundle line 110733) hands
+        # the status to each command, and the commands parse only on success.
+        if packet.error_code != 0 and cmd not in NON_ERROR_COMMANDS:
+            return
 
         # Only parse and dispatch if handlers are registered. The snapshot is
         # taken under the lock so a concurrent (un)register can neither be
@@ -194,6 +210,20 @@ class EmpireClient:
                 except Exception:
                     logger.exception(f"Handler error for command '{cmd}'")
 
+    def _request_movements(self) -> None:
+        """Ask for the movement list (gam) after an mvf push changes the movement filter settings.
+
+        Runs on the receive thread, so it sends without waiting; the reply reaches
+        state like any gam. After a login nothing needs asking: the server pushes
+        gam by itself shortly after the login data (seen live).
+
+        Client: ``MVFCommand.executeCommand`` (bundle line 129703).
+        """
+        try:
+            self.send(GetMovementsRequest())
+        except EmpireError:
+            logger.warning("Could not ask for the movement list after the login data", exc_info=True)
+
     def _update_state(self, cmd: str, payload: dict[str, Any] | list[Any]) -> None:
         """Sync state update from packet - delegates to GameState.
 
@@ -202,14 +232,36 @@ class EmpireClient:
         """
         self.state.update_from_packet(cmd, cast(dict[str, Any], payload))
 
-    def _on_disconnect(self) -> None:
-        """Handle unexpected connection loss.
+    def _on_disconnect(self, generation: int) -> None:
+        """Handle unexpected connection loss of the session ``generation``; a newer session is left alone.
 
-        State (including its callback executor) is intentionally left
-        running so registered callbacks keep working after a re-login.
+        State data is reset, as the game client resets it, so nothing from
+        the lost session is reported after it. The next login's gbd rebuilds
+        the player and castles, and the gam the server pushes after it the movements.
+        Registered callbacks and the callback executor stay, so they keep
+        working after a re-login.
         """
-        self.is_logged_in = False
+        if not self.connection.run_if_current(generation, self._forget_session):
+            logger.debug(f"Client {self.username}: drop of an earlier session reported late, ignored")
+            return
         logger.warning(f"Client {self.username} disconnected unexpectedly")
+
+    def _forget_session(self) -> None:
+        self.is_logged_in = False
+        self.state.reset()
+
+    def on_disconnect(self, callback: Callable[[], None]) -> None:
+        """Register a callback for the session dropping on its own; :meth:`close` does not fire it.
+
+        Runs on the receive thread as it shuts down, after ``is_logged_in`` is
+        cleared, and fires once per dropped session. Keep it short and hand a
+        re-login to another thread. Registering the same callback twice is a no-op.
+        """
+        self.connection.add_disconnect_listener(callback)
+
+    def remove_disconnect_callback(self, callback: Callable[[], None]) -> None:
+        """Remove a callback added with :meth:`on_disconnect`; unknown callbacks are ignored."""
+        self.connection.remove_disconnect_listener(callback)
 
     def login(self) -> bool:
         """
@@ -356,6 +408,7 @@ class EmpireClient:
         # thread pool nobody owns any more.
         self.connection.disconnect()
         self.state.shutdown()
+        self.state.reset()
 
     def __enter__(self) -> EmpireClient:
         """Enter a context that closes the client on exit.
@@ -411,12 +464,16 @@ class EmpireClient:
         Returns:
             The parsed response if wait=True, otherwise None
 
+        With ``wait=True``, requests for one command run one at a time across
+        threads, and the wait for an earlier one counts against ``timeout``.
+
         Raises:
             CommandError: The server answered with a non-zero error code
             PacketError: The response payload did not match the response model
             EmpireTimeoutError: No response within ``timeout``
             ConnectionClosedError: Connection dropped while waiting
             NetworkError: The send itself failed
+            ReceiveThreadError: Called with ``wait=True`` on the receive thread
 
         Example:
             from empire_core.protocol.models import AllianceChatMessageRequest
@@ -435,7 +492,14 @@ class EmpireClient:
 
         command = request.get_command()
         response_command = request.get_response_command()
-        response_packet = self.connection.request(packet, response_command, timeout=timeout)
+        # A request whose reply names what was asked for defines accepts_reply(payload).
+        accepts_reply = getattr(request, "accepts_reply", None)
+        response_packet = self.connection.request(
+            packet,
+            response_command,
+            timeout=timeout,
+            accepts=(lambda reply: accepts_reply(reply.payload)) if accepts_reply is not None else None,
+        )
 
         if response_packet.error_code != 0:
             # Reported under the command sent, which is what the caller asked for.

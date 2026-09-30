@@ -23,7 +23,32 @@ class StateBase:
 
     def __init__(self):
         self._lock = threading.RLock()
+        self._set_empty_session()
 
+        # Callbacks for specific events — support multiple listeners.
+        # Arrival/recall listeners are stored with a flag saying whether they
+        # also take the Movement (see MovementState._accepts_movement).
+        self._incoming_attack_callbacks: list[Callable[[Movement], None]] = []
+        self._movement_recalled_callbacks: list[tuple[MovementEventCallback, bool]] = []
+        self._movement_arrived_callbacks: list[tuple[MovementEventCallback, bool]] = []
+        self._movement_removed_callbacks: list[tuple[MovementEventCallback, bool]] = []
+
+        # One worker, so callbacks run one at a time in packet order, off the
+        # receive thread. Created lazily so it survives disconnect/reconnect.
+        self._callback_executor: ThreadPoolExecutor | None = None
+        self._executor_lock = threading.Lock()
+
+        # Attack movement id -> when it ends (wall clock), for every attack
+        # on_incoming_attack announced. Kept across reset() so a reconnect does
+        # not announce the same attack again.
+        self._announced_attacks: dict[int, float] = {}
+
+        # Rate-limit state for movement parse failure warnings
+        self._movement_parse_warn_at = 0.0
+        self._movement_parse_failures = 0
+
+    def _set_empty_session(self) -> None:
+        """Start the session data over: nothing received yet."""
         self.local_player: Player | None = None
 
         # player id -> Player. Despite the type, this only ever holds the
@@ -41,27 +66,27 @@ class StateBase:
         # Active Events
         self.active_event_ids: list[int] = []
 
-        # Callbacks for specific events — support multiple listeners.
-        # Arrival/recall listeners are stored with a flag saying whether they
-        # also take the Movement (see MovementState._accepts_movement).
-        self._incoming_attack_callbacks: list[Callable[[Movement], None]] = []
-        self._movement_recalled_callbacks: list[tuple[MovementEventCallback, bool]] = []
-        self._movement_arrived_callbacks: list[tuple[MovementEventCallback, bool]] = []
-        self._movement_removed_callbacks: list[tuple[MovementEventCallback, bool]] = []
-
-        # Thread pool for dispatching callbacks (avoids blocking receive loop).
-        # Created lazily so it survives disconnect/reconnect cycles.
-        self._callback_executor: ThreadPoolExecutor | None = None
-        self._executor_lock = threading.Lock()
-
-        # Rate-limit state for movement parse failure warnings
-        self._movement_parse_warn_at = 0.0
-        self._movement_parse_failures = 0
-
         # Freshness bookkeeping (see the GameState docstring). Wall-clock seconds.
         self._packet_times: dict[str, float] = {}
         self._castle_details_at: dict[int, float] = {}
         self._player_updated_at: float | None = None
+
+    def reset(self) -> None:
+        """Forget everything the session sent: player, castles, movements, events and their timestamps.
+
+        Registered callbacks stay, and so does the record of attacks already
+        announced to :meth:`on_incoming_attack`. Fires no callback: a movement that is dropped
+        here was not seen to arrive or be removed. The client resets its data
+        the same way when the connection is lost; the next login's gbd, and the
+        gam the server pushes after it (seen live), rebuild it.
+
+        Client: ``CastleConnectionLostCommand.execute`` (bundle line 120254) runs
+        ``CastleDestroyGameCommand``, whose ``destroyGameSpecificObjects``
+        (line 120270) calls ``CastleModel.resetModels``; ``CastleArmyData.reset``
+        (line 133620) starts the movement map over.
+        """
+        with self._lock:
+            self._set_empty_session()
 
     def shutdown(self) -> None:
         """Shutdown the callback executor. Call when done with the client."""
@@ -71,7 +96,7 @@ class StateBase:
                 self._callback_executor = None
 
     def _dispatch_callback(self, callback: Callable[..., Any], *args: Any, **kwargs: Any) -> None:
-        """Dispatch a callback in the thread pool."""
+        """Queue a callback on the callback thread, behind every callback queued before it."""
 
         def wrapped():
             try:
@@ -81,7 +106,7 @@ class StateBase:
 
         with self._executor_lock:
             if self._callback_executor is None:
-                self._callback_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="gge_callback")
+                self._callback_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="gge_callback")
             executor = self._callback_executor
         try:
             executor.submit(wrapped)

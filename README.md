@@ -49,12 +49,6 @@
 uv add empire-core        # or: pip install empire-core
 ```
 
-The experimental persistence layer needs an extra:
-
-```bash
-pip install "empire-core[storage]"
-```
-
 <details>
 <summary><strong>Developing on the library itself</strong></summary>
 
@@ -413,6 +407,12 @@ state before they run, so the id alone can no longer be resolved — prefer the
 two-argument form above. There is no arrival packet: a movement arrives when
 its travel time is up.
 
+State callbacks run one at a time on a single callback thread, in the order
+their packets arrived, so hand long work to another thread. When the
+connection drops, state is emptied until the next login refills it (the
+server pushes the movement list shortly after the login data);
+`client.on_disconnect(callback)` tells you when that happens.
+
 > [!TIP]
 > [`docs/design/state_management.md`](docs/design/state_management.md) documents
 > the object-identity and freshness rules in full.
@@ -462,8 +462,11 @@ the client even if your code raises.
 
 ```python
 from empire_core import AccountPool, PoolExhaustedError
+from empire_core.accounts import AccountRegistry
 
-pool = AccountPool()
+registry = AccountRegistry()
+registry.load(file_path="accounts.json")
+pool = AccountPool(registry)
 try:
     with pool.leased(tag="scanning") as client:
         result = client.map.scan_kingdom()
@@ -471,10 +474,11 @@ except PoolExhaustedError:
     ...   # no candidate account was free
 ```
 
-Accounts come from `accounts.json` plus every `EMPIRE_ACCOUNT_*` environment
-variable. A `.env` file is read only if you opt in with
-`accounts.load(load_env_file=True)` — importing the library never mutates your
-environment. See [`examples/account_pool.py`](examples/account_pool.py).
+The pool takes its accounts from the registry you give it: `registry.load()`
+reads the file you name plus every `EMPIRE_ACCOUNT_*` environment variable. A
+`.env` file is read only if you opt in with `registry.load(load_env_file=True)`
+— importing the library never mutates your environment. The pool is safe to
+use from several threads. See [`examples/account_pool.py`](examples/account_pool.py).
 
 > [!CAUTION]
 > `accounts.json` holds passwords in plain text. Keep it out of version control
@@ -567,7 +571,6 @@ empire_core/
 ├── gamedata/        # Items data: units, tools, effects and the id enums
 ├── services/        # BaseService and the service registry
 ├── state/           # Thread-safe game state
-├── storage/         # Experimental persistence (optional extra)
 └── utils/           # CDN-backed event and troop data
 ```
 

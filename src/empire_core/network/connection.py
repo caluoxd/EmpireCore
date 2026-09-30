@@ -9,12 +9,14 @@ import logging
 import re
 import threading
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 
 import websocket
 
-from empire_core.exceptions import ConnectionClosedError, EmpireTimeoutError, NetworkError
+from empire_core.exceptions import ConnectionClosedError, EmpireTimeoutError, NetworkError, ReceiveThreadError
+from empire_core.network.framing import FrameBuffer
 from empire_core.protocol.errors import GGEError
 from empire_core.protocol.packet import Packet
 
@@ -97,6 +99,9 @@ SESSION_IDLE_TIMEOUT = KEEPALIVE_INTERVAL * 3
 # as leaked (a subscriber callback can block the receive thread indefinitely).
 THREAD_JOIN_TIMEOUT = 2.0
 
+# A reply check that raises would do so on every reply, so it is reported at most this often.
+REPLY_CHECK_WARN_INTERVAL = 60.0
+
 
 @dataclass
 class ResponseWaiter:
@@ -105,6 +110,8 @@ class ResponseWaiter:
     event: threading.Event = field(default_factory=threading.Event)
     result: Packet | None = None
     error: Exception | None = None
+    # Decides whether a successful reply is this waiter's; None takes the first one.
+    accepts: Callable[[Packet], bool] | None = None
 
 
 class Connection:
@@ -121,22 +128,24 @@ class Connection:
       by an internal lifecycle lock, so concurrent calls cannot leak a socket
       or let a dying session tear down its successor.
 
-    Correlation constraint (important):
-        Responses are matched to waiters by *command id only*, FIFO - there is
-        no payload-level matching. Two consequences follow:
+    Correlation:
+        The protocol carries no request id, and the game client never pairs a
+        reply with its request: every reply goes to the one handler for its
+        command id. So :meth:`request` runs one request per command id at a
+        time: a second caller for the same command waits for the first to be
+        answered (or to time out), and that wait counts against its timeout.
+        Different commands still run in parallel.
 
-        1. Two threads issuing the same command concurrently can receive each
-           other's responses (the oldest waiter takes the first packet with
-           that command id).
-        2. An unsolicited server push (chat, movement update, ...) satisfies a
-           pending waiter for the same command id, and is then consumed:
-           subscribers still see it, but the request gets the push instead of
-           its own answer.
+        A reply goes to the oldest waiter for its command id that accepts it.
+        A waiter with an ``accepts`` check takes only the successful replies
+        that pass it, plus any error reply; other replies still reach state
+        and subscribers. Without a check, a server push or a late reply to an
+        earlier timed-out request with the same command id is taken as the
+        answer.
 
-        So serialize same-command requests per connection, and prefer
-        :meth:`subscribe` over :meth:`request` for command ids the server also
-        pushes on its own. See ``TestCorrelationIsFifo`` in
-        ``tests/test_connection.py``, which pins this behavior.
+    Client: ``BasicSmartfoxClient.onExtensionResponse`` (ggs.dll line 7151) and
+    ``CastleExtensionResponseCommand`` (bundle line 110733), which hands each reply
+    to the command registered for its id.
     """
 
     def __init__(self, url: str, keepalive_zone: str | None = None):
@@ -164,6 +173,11 @@ class Connection:
         # These are consumed when matched (one response per waiter)
         self._waiters: dict[str, list[ResponseWaiter]] = {}
         self._waiters_lock = threading.Lock()
+        self._reply_check_warn_at = 0.0
+
+        # cmd_id -> the lock request() holds for that command (see Correlation)
+        self._command_locks: dict[str, threading.RLock] = {}
+        self._command_locks_lock = threading.Lock()
 
         # Pub/sub subscribers: cmd_id -> list of callbacks
         # These receive copies of all matching packets
@@ -173,11 +187,11 @@ class Connection:
         # Global packet handler (for state updates, etc.)
         self.on_packet: Callable[[Packet], None] | None = None
 
-        # Called only on unexpected connection loss, not on disconnect().
-        # Single slot, kept for backwards compatibility (EmpireClient uses it
-        # for its own bookkeeping); additional observers should register via
-        # add_disconnect_listener instead of overwriting this.
-        self.on_disconnect: Callable[[], None] | None = None
+        # Called only on unexpected connection loss, not on disconnect(), with
+        # the generation of the session that dropped (see run_if_current).
+        # Single slot, claimed by EmpireClient for its own bookkeeping; other
+        # observers register via add_disconnect_listener.
+        self.on_disconnect: Callable[[int], None] | None = None
 
         self._disconnect_listeners: list[Callable[[], None]] = []
         self._disconnect_lock = threading.Lock()
@@ -346,32 +360,77 @@ class Connection:
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug("Sent: %s", _summarize_frame(data))
 
-    def request(self, data: str, cmd_id: str, timeout: float = 5.0) -> Packet:
+    def request(
+        self,
+        data: str,
+        cmd_id: str,
+        timeout: float = 5.0,
+        accepts: Callable[[Packet], bool] | None = None,
+    ) -> Packet:
         """
         Send data and wait for the response to ``cmd_id``.
 
-        The waiter is registered *before* the data is sent, so a response
-        arriving immediately cannot be lost to a registration race.
+        Holds ``cmd_id`` (see :meth:`command_lock`) from before the send until
+        the reply, so only one request per command id is in flight; time spent
+        waiting for the lock counts against ``timeout``. The waiter is
+        registered before the data is sent, so an immediate reply is not lost.
 
-        Correlation is by ``cmd_id`` only, FIFO: concurrent requests for the
-        same command id can be answered out of order, and a server push with
-        that command id satisfies this call. See the class docstring.
+        Args:
+            data: The packet to send
+            cmd_id: The command id the reply arrives under
+            timeout: Seconds to wait, queueing included
+            accepts: Whether a successful reply is the answer to this request;
+                replies it rejects still reach state and subscribers. Error
+                replies carry nothing to check, so they are always taken.
 
         Raises:
             EmpireTimeoutError: No response within ``timeout``
             ConnectionClosedError: Connection dropped while waiting
             NetworkError: The send itself failed
+            ReceiveThreadError: Called on the receive thread, which alone could route the reply
         """
-        waiter = self.create_waiter(cmd_id)
-        try:
-            self.send(data)
-        except Exception:
-            self.cancel_waiter(cmd_id, waiter)
-            raise
-        return self.wait_for_result(cmd_id, waiter, timeout=timeout)
+        self._refuse_receive_thread(cmd_id)
+        deadline = time.monotonic() + timeout
+        with self.command_lock(cmd_id, timeout=timeout):
+            if time.monotonic() >= deadline:
+                raise EmpireTimeoutError(
+                    f"Timeout waiting for '{cmd_id}': an earlier '{cmd_id}' request was still running"
+                )
+            waiter = self.create_waiter(cmd_id, accepts)
+            try:
+                self.send(data)
+            except Exception:
+                self.cancel_waiter(cmd_id, waiter)
+                raise
+            return self.wait_for_result(cmd_id, waiter, timeout=max(0.0, deadline - time.monotonic()))
 
-    def create_waiter(self, cmd_id: str) -> ResponseWaiter:
-        waiter = ResponseWaiter()
+    @contextmanager
+    def command_lock(self, cmd_id: str, timeout: float = 5.0) -> Iterator[None]:
+        """Hold ``cmd_id``: no :meth:`request` for it runs on another thread until the block ends.
+
+        For work that sends ``cmd_id`` itself, several requests at once for
+        example, so that neither their replies nor their errors can land on a
+        concurrent :meth:`request`. Reentrant on the holding thread.
+
+        Raises:
+            EmpireTimeoutError: Another thread held it for all of ``timeout``
+            ReceiveThreadError: Called on the receive thread, where waiting for it would stall routing
+        """
+        self._refuse_receive_thread(cmd_id)
+        with self._command_locks_lock:
+            lock = self._command_locks.get(cmd_id)
+            if lock is None:
+                lock = self._command_locks[cmd_id] = threading.RLock()
+        if not lock.acquire(timeout=max(0.0, timeout)):
+            raise EmpireTimeoutError(f"Timeout waiting for '{cmd_id}': an earlier '{cmd_id}' request was still running")
+        try:
+            yield
+        finally:
+            lock.release()
+
+    def create_waiter(self, cmd_id: str, accepts: Callable[[Packet], bool] | None = None) -> ResponseWaiter:
+        """Register a waiter for the next reply under ``cmd_id`` that ``accepts`` takes (see :meth:`request`)."""
+        waiter = ResponseWaiter(accepts=accepts)
         with self._waiters_lock:
             if cmd_id not in self._waiters:
                 self._waiters[cmd_id] = []
@@ -379,7 +438,14 @@ class Connection:
         return waiter
 
     def wait_for_result(self, cmd_id: str, waiter: ResponseWaiter, timeout: float = 5.0) -> Packet:
+        """Wait for the reply a waiter from :meth:`create_waiter` receives, then drop the waiter.
+
+        Raises:
+            EmpireTimeoutError / ConnectionClosedError: as :meth:`request`
+            ReceiveThreadError: Called on the receive thread
+        """
         try:
+            self._refuse_receive_thread(cmd_id)
             if waiter.event.wait(timeout=timeout):
                 if waiter.error:
                     raise waiter.error
@@ -390,6 +456,13 @@ class Connection:
                 raise EmpireTimeoutError(f"Timeout waiting for '{cmd_id}'")
         finally:
             self.cancel_waiter(cmd_id, waiter)
+
+    def _refuse_receive_thread(self, cmd_id: str) -> None:
+        if threading.current_thread() is self._recv_thread:
+            raise ReceiveThreadError(
+                f"Waiting for '{cmd_id}' on the receive thread would stall it until the timeout: "
+                "hand the call to another thread, or use a GameState callback"
+            )
 
     def cancel_waiter(self, cmd_id: str, waiter: ResponseWaiter) -> None:
         with self._waiters_lock:
@@ -412,7 +485,11 @@ class Connection:
         Note: only use this for server-pushed packets. For request/response
         round trips use :meth:`request`, which registers the waiter before
         sending.
+
+        Raises:
+            ReceiveThreadError: Called on the receive thread
         """
+        self._refuse_receive_thread(cmd_id)
         waiter = self.create_waiter(cmd_id)
         return self.wait_for_result(cmd_id, waiter, timeout)
 
@@ -422,6 +499,9 @@ class Connection:
 
         Unlike waiters, subscribers receive ALL matching packets
         and are not consumed.
+
+        Callbacks run on the receive thread, which routes every reply: they must
+        not block, and a call that waits for a reply raises ``ReceiveThreadError``.
 
         Args:
             cmd_id: Command ID to subscribe to
@@ -461,19 +541,37 @@ class Connection:
             except ValueError:
                 pass
 
-    def _notify_disconnect(self) -> None:
-        """Fire the legacy attribute and every registered listener."""
-        callbacks: list[Callable[[], None]] = []
+    def _notify_disconnect(self, generation: int) -> None:
+        """Fire the on_disconnect slot, then every registered listener."""
         if self.on_disconnect is not None:
-            callbacks.append(self.on_disconnect)
+            try:
+                self.on_disconnect(generation)
+            except Exception:
+                logger.exception("Error in disconnect callback")
         with self._disconnect_lock:
-            callbacks.extend(self._disconnect_listeners)
-
+            callbacks = list(self._disconnect_listeners)
         for callback in callbacks:
             try:
                 callback()
             except Exception:
                 logger.exception("Error in disconnect callback")
+
+    @property
+    def generation(self) -> int:
+        """Counts the sessions: :meth:`connect` starts a new one."""
+        return self._generation
+
+    def run_if_current(self, generation: int, action: Callable[[], None]) -> bool:
+        """Run ``action`` unless a newer session has started since ``generation``; say whether it ran.
+
+        Holds the lifecycle lock while it runs, so no :meth:`connect` can start a
+        session in between: cleanup for a dropped session cannot touch its successor.
+        """
+        with self._lifecycle_lock:
+            if generation != self._generation:
+                return False
+            action()
+            return True
 
     def unsubscribe(self, cmd_id: str, callback: Callable[[Packet], None]) -> None:
         """Remove a subscriber."""
@@ -489,6 +587,7 @@ class Connection:
     def _recv_loop(self, ws: websocket.WebSocket, generation: int) -> None:
         """Background thread that receives and routes messages."""
         logger.debug("Receive loop started")
+        frames = FrameBuffer()
 
         while self._running and generation == self._generation:
             # Only socket-level failures are fatal to this loop; everything
@@ -517,16 +616,15 @@ class Connection:
 
             self._last_recv_at = time.monotonic()
 
-            # A single bad frame must not cost us the connection: parsing can
-            # reject e.g. all-null or non-UTF-8 frames, and tearing the session
-            # down forces a re-login that the game server rate-limits. Drop the
-            # frame, keep the socket.
-            try:
-                raw = data if isinstance(data, bytes) else data.encode("utf-8")
-                self._route_packet(Packet.from_bytes(raw))
-            except Exception:
-                logger.exception("Dropping frame that could not be parsed or routed")
-                continue
+            # A single bad packet must not cost us the connection: tearing the
+            # session down forces a re-login that the game server rate-limits.
+            # Drop the packet, keep the socket.
+            text = data.decode("utf-8", errors="replace") if isinstance(data, bytes) else data
+            for raw in frames.feed(text):
+                try:
+                    self._route_packet(Packet.from_bytes(raw.encode("utf-8")))
+                except Exception:
+                    logger.exception("Dropping a packet that could not be parsed or routed")
 
         # If a newer connection took over, this thread must not touch shared
         # state - the new session owns it now. The check happens under the
@@ -543,7 +641,7 @@ class Connection:
 
         # Callbacks run outside the lock: they commonly reconnect.
         if notify:
-            self._notify_disconnect()
+            self._notify_disconnect(generation)
 
         logger.debug("Receive loop ended")
 
@@ -552,9 +650,10 @@ class Connection:
         Route a packet to waiters and subscribers.
 
         Order:
-        1. Check waiters (consumed on match)
-        2. Notify subscribers (broadcast)
-        3. Call global handler
+        1. Pick the waiter that takes it (consumed on match)
+        2. Call the global handler, which feeds state
+        3. Wake the waiter
+        4. Notify subscribers (broadcast)
 
         Uses copy-on-read pattern to minimize lock hold time.
         """
@@ -583,9 +682,11 @@ class Connection:
             with self._waiters_lock:
                 waiters_list = self._waiters.get(cmd_id)
                 if waiters_list:
-                    waiter = waiters_list.pop(0)
-                    if not waiters_list:
-                        del self._waiters[cmd_id]
+                    index = next((i for i, w in enumerate(waiters_list) if self._takes(w, packet)), None)
+                    if index is not None:
+                        waiter = waiters_list.pop(index)
+                        if not waiters_list:
+                            del self._waiters[cmd_id]
 
             # Get subscriber callbacks (copy the list)
             with self._subscribers_lock:
@@ -613,6 +714,19 @@ class Connection:
                     callback(packet)
                 except Exception:
                     logger.exception("Subscriber error")
+
+    def _takes(self, waiter: ResponseWaiter, packet: Packet) -> bool:
+        """Whether ``waiter`` takes ``packet``; a check that raises counts as no. Called under the waiters lock."""
+        if waiter.accepts is None or packet.error_code != 0:
+            return True
+        try:
+            return bool(waiter.accepts(packet))
+        except Exception:
+            now = time.monotonic()
+            if now >= self._reply_check_warn_at:
+                self._reply_check_warn_at = now + REPLY_CHECK_WARN_INTERVAL
+                logger.exception(f"Reply check for '{packet.command_id}' raised; the reply is not taken")
+            return False
 
     def _keepalive_loop(self, generation: int) -> None:
         """Background thread that sends keepalive pings."""

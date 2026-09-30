@@ -33,6 +33,13 @@ class MovementState(StateBase):
         is not on its way home and had not already landed when first seen.
         That covers attacks on you and every other attack the server shares
         with you, which includes your alliance members' own attacks (#58).
+
+        Fires once per attack movement id, also across a reconnect: an attack
+        still on its way when the connection drops is not announced again when
+        the next login lists it. The record of an attack is dropped when it
+        arrives, when the server removes it, or once its travel time is over.
+
+        Runs on the callback thread, in packet order (see :class:`GameState`).
         """
         with self._lock:
             self._incoming_attack_callbacks.append(callback)
@@ -53,6 +60,8 @@ class MovementState(StateBase):
 
             def on_recalled(movement_id: int) -> None: ...
             def on_recalled(movement_id: int, movement: Movement | None) -> None: ...
+
+        Runs on the callback thread, in packet order (see :class:`GameState`).
         """
         entry = (callback, self._accepts_movement(callback))
         with self._lock:
@@ -85,6 +94,8 @@ class MovementState(StateBase):
             def on_arrived(movement_id: int, movement: Movement | None) -> None: ...
 
         Prefer the second form: the id alone says nothing about what arrived.
+
+        Runs on the callback thread, in packet order (see :class:`GameState`).
         """
         entry = (callback, self._accepts_movement(callback))
         with self._lock:
@@ -102,6 +113,8 @@ class MovementState(StateBase):
         support sent home all look the same. ``movement`` is ``None`` if state
         was not tracking it. Accepts either signature (see
         :meth:`on_movement_arrived`).
+
+        Runs on the callback thread, in packet order (see :class:`GameState`).
         """
         entry = (callback, self._accepts_movement(callback))
         with self._lock:
@@ -239,7 +252,8 @@ class MovementState(StateBase):
             # Arrived before we saw it (a stationed support after login):
             # there is no arrival to report.
             mov._arrival_dispatched = mov.estimated_arrival <= mov.created_at
-            if self._is_attack_on_us(mov):
+            if self._is_attack_on_us(mov) and mid not in self._announced_attacks:
+                self._announced_attacks[mid] = mov.estimated_end
                 with self._lock:
                     attack_callbacks = list(self._incoming_attack_callbacks)
                 for cb in attack_callbacks:
@@ -269,13 +283,16 @@ class MovementState(StateBase):
 
         Client: ``CastleArmyData.updateMapmovements``.
         """
+        now = time.time()
+        if self._announced_attacks:
+            self._announced_attacks = {mid: end for mid, end in self._announced_attacks.items() if now < end}
         if not self.movements:
             return
-        now = time.time()
         arrived = []
         for mid, mov in list(self.movements.items()):
             if not mov._arrival_dispatched and now >= mov.estimated_arrival:
                 mov._arrival_dispatched = True
+                self._announced_attacks.pop(mid, None)
                 arrived.append(mov)
             if now >= mov.estimated_end:
                 del self.movements[mid]
@@ -294,6 +311,7 @@ class MovementState(StateBase):
         if mid is None:
             return
         mov = self.movements.pop(mid, None)
+        self._announced_attacks.pop(mid, None)
         self._dispatch_movement_event(self._movement_removed_callbacks, mid, mov)
 
     def _handle_mfc(self, data: dict[str, Any]) -> None:
