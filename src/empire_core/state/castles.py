@@ -6,14 +6,17 @@ from typing import Any
 
 from pydantic import ValidationError
 
+from empire_core.protocol.models.base import enum_or_none
 from empire_core.protocol.models.castle import (
     DetailedCastleInfo,
+    PlayerCastle,
     ResourceProduction,
     SafeAmount,
     StorageCapacity,
 )
 from empire_core.state.base import StateBase
 from empire_core.state.models import Castle, Resources
+from empire_core.utils.enums import Kingdom
 
 logger = logging.getLogger(__name__)
 
@@ -46,21 +49,27 @@ class CastleState(StateBase):
                 skipped += 1
                 logger.debug(f"Skipping malformed gcl kingdom entry: {k_data!r}")
                 continue
-            kid = k_data.get("KID", 0)
+            kid = enum_or_none(Kingdom, k_data.get("KID", 0))
             for area_entry in k_data.get("AI", []):
                 entries += 1
+                if kid is None:
+                    skipped += 1
+                    logger.debug(f"Skipping gcl entry in a kingdom Kingdom lacks: {k_data.get('KID')!r}")
+                    continue
                 if not isinstance(area_entry, dict):
                     skipped += 1
                     logger.debug(f"Skipping malformed gcl area entry: {area_entry!r}")
                     continue
-                raw_ai = area_entry.get("AI")
-                if not (isinstance(raw_ai, list) and len(raw_ai) > 10):
+                try:
+                    row = PlayerCastle.from_list(area_entry.get("AI"), kid)
+                except (ValueError, TypeError) as e:
                     skipped += 1
-                    logger.debug(f"Skipping malformed gcl area entry: {area_entry!r}")
+                    logger.debug(f"Skipping unreadable gcl area entry {area_entry!r}: {e}")
                     continue
-                x, y, area_id, owner_id, name = raw_ai[1], raw_ai[2], raw_ai[3], raw_ai[4], raw_ai[10]
-                if owner_id != self.local_player.id:
+                if row.location_id is None or row.owner_id != self.local_player.id:
+                    # A castle is tracked by its object id; a faction capital's row has none
                     continue
+                x, y, area_id, name = row.x, row.y, row.location_id, row.name or ""
                 existing = self.castles.get(area_id)
                 if existing is not None:
                     # Identity preserved for user-held references, but the

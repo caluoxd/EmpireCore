@@ -7,20 +7,19 @@ class Kingdom(IntEnum):
     """
     Kingdom identifiers used throughout the game.
 
-    Each kingdom has different terrain and unit types. Inputs take
-    ``Kingdom | int``: the server may use kingdom ids this list lacks.
+    Each kingdom has different terrain and unit types.
 
     Client: ``WorldClassic.KINGDOM_ID`` (dll line 19928), ``WorldDessert``
     (20019), ``WorldIce`` (20035), ``WorldVolcano`` (20067), ``WorldIsland``
     (20051), ``FactionConst.KINGDOM_ID`` (19333)
     """
 
-    GREEN = 0  # Green Kingdom - basic/starter kingdom
-    SANDS = 1  # Sand Kingdom - desert units
-    ICE = 2  # Ice Kingdom - ice/frost units
-    FIRE = 3  # Fire Kingdom - lava/fire units
-    STORM = 4  # Storm Kingdom - storm/lightning units
-    BERIMOND = 10  # Berimond event kingdom
+    GREEN = 0
+    SANDS = 1
+    ICE = 2
+    FIRE = 3
+    STORM = 4
+    BERIMOND = 10
 
 
 class MapItemType(IntEnum):
@@ -28,7 +27,10 @@ class MapItemType(IntEnum):
     Area types: the first field of a map row, as in a scan's AI array.
 
     These mirror the game client's own ``WorldConst.AREA_TYPE_*`` constants,
-    cross-checked against the client's area-type-to-map-object registration.
+    a superset of the types ``WorldmapObjectFactory.mapObjectVOs`` (bundle
+    line 5357) registers a map object for: NO_LANDMARK (14), TROOP_HOSTEL
+    (20), SAMURAI_ALIEN_CAMP (33) and NO_OUTPOST (99) have none, so the client
+    cannot read a map row of those types.
 
     Two things that are not separate types:
 
