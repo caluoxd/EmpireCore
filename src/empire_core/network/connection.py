@@ -19,9 +19,11 @@ from empire_core.exceptions import ConnectionClosedError, EmpireTimeoutError, Ne
 from empire_core.network.framing import FrameBuffer
 from empire_core.protocol.base import NO_ROOM, build_command
 from empire_core.protocol.errors import GGEError
-from empire_core.protocol.packet import Packet
+from empire_core.protocol.packet import DegradedFrameCounts, Packet, degraded_frame_counts
 
 logger = logging.getLogger(__name__)
+
+_DATA_OPCODES = frozenset({websocket.ABNF.OPCODE_TEXT, websocket.ABNF.OPCODE_BINARY})
 
 # Commands that use XT field 4 for data instead of error codes
 NON_ERROR_COMMANDS = {"rlu", "core_pol"}
@@ -236,7 +238,8 @@ class Connection:
 
             logger.debug(f"Connecting to {self.url}...")
 
-            ws = websocket.WebSocket()
+            # UTF-8 is checked where the message is decoded (see _receive), not per byte here.
+            ws = websocket.WebSocket(skip_utf8_validation=True)
             ws.settimeout(timeout)
 
             try:
@@ -389,6 +392,18 @@ class Connection:
             accepts: Whether a successful reply is the answer to this request;
                 replies it rejects still reach state and subscribers. Error
                 replies carry nothing to check, so they are always taken.
+
+        ``EmpireClient.send`` and ``request_packet`` pass the check of a request
+        model that defines ``accepts_reply`` (gaa, ssi, ain, grc, dfc, mcm, jaa by
+        position, csm, cra, cds, cat): those replies name what was asked for. Most
+        commands' replies do not (gam, gcl, dcl, gli, gui, hgh, jca, ranking pages,
+        the attack-info family, chat and every write), so without a check a reply
+        cannot be told from another one under the same command: after one
+        request times out, its late reply is taken by the next request for that
+        command, whose own reply then goes to the one after, until a request
+        times out with nothing arriving. A server push under that command id is
+        taken the same way. An error reply for a checked command still goes to
+        the oldest waiter.
 
         Raises:
             EmpireTimeoutError: No response within ``timeout``
@@ -564,6 +579,15 @@ class Connection:
                 logger.exception("Error in disconnect callback")
 
     @property
+    def degraded_frames(self) -> DegradedFrameCounts:
+        """Inbound frames that degraded to a raw wrapper, which match no waiter and are dropped.
+
+        Counted for the whole process, not for this connection: frames are read
+        without knowing which connection they came in on.
+        """
+        return degraded_frame_counts()
+
+    @property
     def generation(self) -> int:
         """Counts the sessions: :meth:`connect` starts a new one."""
         return self._generation
@@ -592,15 +616,39 @@ class Connection:
                     pass
 
     def _recv_loop(self, ws: websocket.WebSocket, generation: int) -> None:
-        """Background thread that receives and routes messages."""
+        """Background thread that receives and routes messages.
+
+        However the loop ends, even by an error nothing inside it expects, the
+        epilogue runs: waiters are cancelled, the connection is marked down
+        and, unless :meth:`disconnect` ended it, the disconnect listeners run.
+        """
         logger.debug("Receive loop started")
+        try:
+            self._receive(ws, generation)
+        except Exception:
+            if self._running and generation == self._generation:
+                logger.exception("Receive loop stopped by an unexpected error")
+        finally:
+            self._end_receive_loop(generation)
+
+    def _receive(self, ws: websocket.WebSocket, generation: int) -> None:
+        """Read messages until the socket fails or the session ends.
+
+        Each message is decoded as UTF-8 with bad bytes replaced and a leading
+        byte order mark dropped, as the client's ``FileReader.readAsText(data,
+        "utf-8")`` decodes it. The client only reads binary messages; a text
+        message is decoded the same way, where a browser would fail the
+        connection on invalid UTF-8.
+
+        Client: ``BasicSmartfoxClient.handleSocketData`` (ggs.dll line 7208).
+        """
         frames = FrameBuffer()
 
         while self._running and generation == self._generation:
             # Only socket-level failures are fatal to this loop; everything
             # about handling a single frame is contained below.
             try:
-                data = ws.recv()
+                opcode, data = ws.recv_data()
             except websocket.WebSocketTimeoutException:
                 continue  # Check _running and try again
             except websocket.WebSocketConnectionClosedException:
@@ -612,13 +660,13 @@ class Connection:
                     logger.exception("Receive loop stopped by socket error")
                 break
             except Exception:
-                # Nothing else is expected out of recv(); still fatal, but log
+                # Nothing else is expected out of recv_data(); still fatal, but log
                 # it with the traceback so the cause is diagnosable.
                 if self._running and generation == self._generation:
                     logger.exception("Unexpected error in receive loop")
                 break
 
-            if not data:
+            if opcode not in _DATA_OPCODES or not data:
                 continue
 
             self._last_recv_at = time.monotonic()
@@ -626,13 +674,20 @@ class Connection:
             # A single bad packet must not cost us the connection: tearing the
             # session down forces a re-login that the game server rate-limits.
             # Drop the packet, keep the socket.
-            text = data.decode("utf-8", errors="replace") if isinstance(data, bytes) else data
-            for raw in frames.feed(text):
+            text = data.decode("utf-8-sig", errors="replace") if isinstance(data, bytes) else data
+            try:
+                raws = frames.feed(text)
+            except Exception:
+                logger.exception("Dropping buffered data that could not be split into packets")
+                frames = FrameBuffer()
+                continue
+            for raw in raws:
                 try:
                     self._route_packet(Packet.from_bytes(raw.encode("utf-8")))
                 except Exception:
                     logger.exception("Dropping a packet that could not be parsed or routed")
 
+    def _end_receive_loop(self, generation: int) -> None:
         # If a newer connection took over, this thread must not touch shared
         # state - the new session owns it now. The check happens under the
         # lifecycle lock so a connect() cannot slip in between the check and
