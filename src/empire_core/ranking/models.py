@@ -3,7 +3,7 @@ Ranking protocol models for GGE.
 
 Commands:
 - hgh: A page of a highscore list, around a rank or a searched name
-- llsp: A page of a global leaderboard, from a rank
+- llsp: A page of an event leaderboard, from a rank
 """
 
 from __future__ import annotations
@@ -189,12 +189,27 @@ class GetHighscoreResponse(BaseResponse):
 
 class GetRankingListRequest(BaseRequest):
     """
-    A page of a global leaderboard, starting at a rank.
+    A page of an event leaderboard, starting at a rank.
 
     Payload: {"LT": list_type, "LID": league_type_id, "M": max_results, "R": rank}
 
+    The client pages only event leaderboards this way (score, long-term
+    point, alliance mobilisation/raid and donation events). ``LID`` is the
+    event's league, or -1: the score and long-term point dialogs start at the
+    event's league and page through leagues 1 to the event's league count
+    (``GlobalLeaderBoardLeagueComponent``, bundle line 100470), the alliance
+    mobilisation dialog passes the event's league, and the donation ranking
+    passes none, so -1. A live server answered NO_EVENT
+    (145) for every list with no event running, the regular highscore
+    lists included; read those with ``hgh``.
+
     Client: ``C2SListLeaderboardScoresPageVO`` (bundle line 76002), sent by
-    ``LeaderBoardDataProvider`` (bundle line 75933)
+    ``LeaderBoardDataProvider`` (bundle line 75933), which only
+    ``GlobalLeaderBoardComponent.init`` (bundle line 34989) builds, for
+    ``ScoreEventGlobalLeaderBoardDialog`` and
+    ``LongtermPointEventGlobalLeaderBoardDialog`` (``AGlobalLeaderBoardDialog.showLoaded``,
+    bundle line 100442), ``AllianceMobilizationEventDialogLeaderboard.show``
+    (bundle line 47278) and ``DonationEventDialogRanking`` (bundle line 115737)
     """
 
     command: ClassVar[str] = "llsp"
@@ -203,7 +218,7 @@ class GetRankingListRequest(BaseRequest):
     league_type_id: int = Field(
         alias="LID",
         default=-1,
-        description="The league, a level band (see GameData.league_type); -1 for none",
+        description="The event's league, a level band (see GameData.league_type); -1 for none",
     )
     max_results: int = Field(alias="M", description="Entries per page")
     rank: int = Field(alias="R", default=1, description="The first rank on the page")
@@ -214,7 +229,7 @@ def _guarded(value: Any, kind: type | tuple[type, ...]) -> Any:
 
 
 class LeaderboardScore(BasePayload):
-    """One entry of a global leaderboard page: an entry of ``llsp``'s ``L``.
+    """One entry of an event leaderboard page: an entry of ``llsp``'s ``L``.
 
     Client: ``AGlobalLeaderBoardItem`` getters (bundle lines 47303-47316) and
     ``LeaderBoardDataProvider.onScoreDataReceived`` (bundle line 75957).
