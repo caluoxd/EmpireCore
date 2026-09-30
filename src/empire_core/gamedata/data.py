@@ -24,6 +24,7 @@ from empire_core.exceptions import AmbiguousLookupError, NetworkError
 from empire_core.utils.troops import fetch_items_data, get_items_version
 
 from .models import (
+    READING_CACHE,
     AllianceBuffDef,
     AttackSlotDef,
     ConstructionItemDef,
@@ -132,6 +133,22 @@ RAW_TABLES = (
 )
 
 R = TypeVar("R", bound=BaseModel)
+
+
+_warned_versions: set[str] = set()
+
+
+def _check_ids_version(version: str) -> None:
+    """Log once per version when the loaded items differ from the ones the id enums came from."""
+    from .ids import ITEMS_VERSION
+
+    if version == ITEMS_VERSION or version in _warned_versions:
+        return
+    _warned_versions.add(version)
+    logger.warning(
+        f"Loaded items v{version}, but empire_core.gamedata.ids was generated from v{ITEMS_VERSION}; "
+        "ids added since may be missing: use the GameData lookups for those, or update empire_core."
+    )
 
 
 def default_cache_dir() -> Path:
@@ -542,6 +559,7 @@ class GameData(BaseModel):
         if not refresh:
             cached = cls._read_cache(cache_file, version)
             if cached is not None:
+                _check_ids_version(version)
                 return cached
 
         try:
@@ -555,6 +573,7 @@ class GameData(BaseModel):
             f"Loaded {len(data.units)} units, {len(data.tools)} tools and "
             f"{len(data.dungeons)} camp defenses (v{version})"
         )
+        _check_ids_version(version)
         return data
 
     @classmethod
@@ -563,7 +582,11 @@ class GameData(BaseModel):
             return None
         try:
             payload = json.loads(cache_file.read_text())
-            data = cls.model_validate(payload)
+            token = READING_CACHE.set(True)
+            try:
+                data = cls.model_validate(payload)
+            finally:
+                READING_CACHE.reset(token)
         except (OSError, ValueError) as e:
             logger.warning(f"Ignoring unreadable game data cache {cache_file}: {e}")
             return None
