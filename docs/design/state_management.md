@@ -82,11 +82,11 @@ commands to handlers:
 | `see`, `tee` | an event ended                                    |
 | `pep`        | your points and rank in a running event           |
 
-`lli` is routed through the same handler as `gbd`, but in the client a
-successful `lli` carries no game data (`LLICommand.executeCommand`, bundle
-line 120647, only reads its payload on a refusal, for the ban time, cooldown,
-instance id or player id). The player, castles and the rest come in the `gbd`
-the server sends right after it.
+`lli` is not applied to state: in the client a successful `lli` carries no
+game data (`LLICommand.executeCommand`, bundle line 120647, only reads its
+payload on a refusal, for the ban time, cooldown, instance id or player id).
+The player, castles and the rest come in the `gbd` the server sends right
+after it.
 
 ### Presence vs. Absence in `gbd` and the Section Pushes
 
@@ -178,7 +178,8 @@ when the callback runs, so the id alone cannot be resolved. `movement` is
   movement heading home.
 * `on_movement_removed`: the server sent `mrm`. It does not say why.
 
-`on_incoming_attack` fires **once** per newly seen attack movement id, also
+`on_incoming_attack` fires **once** per attack movement id (judged again on
+every packet that carries it, so an attacker's record that comes later counts), also
 across a reconnect (not on every `gam` refresh). As in the client's
 `CastleArmyData.checkAllAttackMovements`, it covers attacks aimed at you (or
 your daimyo township) and player attacks aimed at a member of your alliance;

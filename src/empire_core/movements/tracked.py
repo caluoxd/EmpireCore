@@ -8,16 +8,60 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from empire_core.commanders.models.equipment import Equipment
 from empire_core.commanders.models.roster import CommanderEffect
-from empire_core.enums import MapItemType, MovementType
+from empire_core.enums import MapItemType, MovementType, NPCOwner
 from empire_core.movements.models import MovementArea, MovementOwner, MovementSpy
 from empire_core.protocol.base import enum_or_none, read_or_none
 from empire_core.utils.troops import count_troops
 
 logger = logging.getLogger(__name__)
 
-# Client: DungeonConst.BASIC_DAIMYO_TOWNSHIP_PLAYER_ID. getOwnerInfoVO files it under
-# the local player's own record, so the daimyo township counts as yours.
-DAIMYO_TOWNSHIP_PLAYER_ID = -815
+# Client: the NPC owners CastleNPCOwnerFactory marks isDungeonOwner (bundle lines
+# 14461-14618): its standard owner list, and every id getOwner knows (14496).
+DUNGEON_OWNER_IDS = frozenset(
+    {
+        *(NPCOwner.ROBBER_BARON - i for i in range(13)),
+        *(NPCOwner.DESERT_DUNGEON - i for i in range(5)),
+        NPCOwner.DESERT_BOSS_DUNGEON,
+        NPCOwner.ICE_BOSS_DUNGEON,
+        NPCOwner.VOLCANO_BOSS_DUNGEON,
+        *range(NPCOwner.ISLAND_VILLAGE, NPCOwner.ISLAND_VILLAGE + 5),
+        NPCOwner.BLUE_FACTION_KING,
+        NPCOwner.RED_FACTION_KING,
+        NPCOwner.KINGS_TOWER,
+        NPCOwner.MONUMENT,
+        NPCOwner.CLASSIC_LABORATORY,
+        NPCOwner.ICE_LABORATORY,
+        NPCOwner.DESERT_LABORATORY,
+        NPCOwner.VOLCANO_LABORATORY,
+        NPCOwner.RANDOM_DUNGEON_EVENT,
+        NPCOwner.APRIL_DUNGEON_EVENT,
+        NPCOwner.ST_PATRICKS_DAY_DUNGEON_EVENT,
+        NPCOwner.EASTER_DUNGEON_EVENT,
+        *(NPCOwner.NOMAD_CAMP - i for i in range(4)),
+        NPCOwner.SAMURAI_CAMP,
+        NPCOwner.TUTORIAL_DUNGEON,
+        NPCOwner.THORNKING_DUNGEON,
+        NPCOwner.THORNKING_VILLAGE,
+        NPCOwner.THORNKING_COW_DUNGEON,
+        NPCOwner.SEA_QUEEN_DUNGEON,
+        NPCOwner.SEA_QUEEN_SHIPS,
+        NPCOwner.TREASURE_HUNT_DUNGEON,
+        NPCOwner.UNDERWORLD_DUNGEON,
+        NPCOwner.UNDERWORLD_VILLAGE,
+        NPCOwner.ALLIANCE_NOMAD_CAMP,
+        NPCOwner.DAIMYO_CASTLE,
+        NPCOwner.ALIEN_INVASION,
+        NPCOwner.RED_ALIEN_INVASION,
+        *(owner for owner in NPCOwner if owner.name.startswith("COLLECTOR_")),
+        NPCOwner.WOLF_KING,
+        NPCOwner.ARE_PORTAL,
+        NPCOwner.UNKNOWN_EVENT_OWNER,
+    }
+)
+"""
+Owner ids the game counts as dungeon owners. Robber barons, kingdom dungeons,
+villages and nomad camps are runs of ids (see :class:`~empire_core.enums.NPCOwner`).
+"""
 
 
 class MovementResources(BaseModel):
@@ -245,15 +289,17 @@ class Movement(BaseModel):
     def is_incoming(self) -> bool:
         """Another player's army heading to one of the local player's areas.
 
-        The daimyo township counts as yours, as in the client. Armies moving
-        between your own areas count as outgoing, not incoming.
+        The daimyo township counts as yours, as in the client, except for an
+        alien attack, which comes only at you. Armies moving between your own
+        areas count as outgoing, not incoming.
+
+        Client: ``ArmyAttackMapmovementVO.isAttackingMovement`` (bundle line 14389),
+        ``AlienAttackMovementVO.isAttackingMovement`` (bundle line 33073)
         """
-        return (
-            self.local_player_id != -1
-            and self.target_id in (self.local_player_id, DAIMYO_TOWNSHIP_PLAYER_ID)
-            and not self.is_mine
-            and not self.is_returning
-        )
+        if self.local_player_id == -1 or self.is_mine or self.is_returning:
+            return False
+        township = self.movement_type_enum is not MovementType.ALIEN_ATTACK
+        return self.target_id == self.local_player_id or (township and self.target_id == NPCOwner.DAIMYO_TOWNSHIP)
 
     @property
     def is_attack(self) -> bool:
