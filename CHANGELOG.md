@@ -2,6 +2,38 @@
 
 <!-- version list -->
 
+## v0.42.1 (2026-10-01)
+
+### Build System
+
+- List the supported Python versions and project classifiers
+  ([#262](https://github.com/eschnitzler/EmpireCore/pull/262),
+  [`2a8424e`](https://github.com/eschnitzler/EmpireCore/commit/2a8424e7a89096eae2cfb0fc00233b45d853cc56))
+
+### Documentation
+
+- A calmer README and site, with a logo ([#262](https://github.com/eschnitzler/EmpireCore/pull/262),
+  [`2a8424e`](https://github.com/eschnitzler/EmpireCore/commit/2a8424e7a89096eae2cfb0fc00233b45d853cc56))
+
+- A calmer theme, a new logo and social preview, and a split home page
+  ([#262](https://github.com/eschnitzler/EmpireCore/pull/262),
+  [`2a8424e`](https://github.com/eschnitzler/EmpireCore/commit/2a8424e7a89096eae2cfb0fc00233b45d853cc56))
+
+- **api**: Render the reference's docstrings as Markdown and give each module a real summary
+  ([#262](https://github.com/eschnitzler/EmpireCore/pull/262),
+  [`2a8424e`](https://github.com/eschnitzler/EmpireCore/commit/2a8424e7a89096eae2cfb0fc00233b45d853cc56))
+
+- **readme**: A calmer showcase with the logo, a recorded run and a service table
+  ([#262](https://github.com/eschnitzler/EmpireCore/pull/262),
+  [`2a8424e`](https://github.com/eschnitzler/EmpireCore/commit/2a8424e7a89096eae2cfb0fc00233b45d853cc56))
+
+### Refactoring
+
+- **castle**: Annotate model fields with ClientInt instead of duplicate _int validators (#282)
+  ([#317](https://github.com/eschnitzler/EmpireCore/pull/317),
+  [`d8fee77`](https://github.com/eschnitzler/EmpireCore/commit/d8fee77df0b454ee5a1d508c2e19e75c5fdc3a50))
+
+
 ## v0.42.0 (2026-09-30)
 
 ### Bug Fixes
