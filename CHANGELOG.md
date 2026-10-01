@@ -2,6 +2,116 @@
 
 <!-- version list -->
 
+## v0.43.0 (2026-10-01)
+
+### Bug Fixes
+
+- **state**: Decide alliance attack alerts as the client does, and correct command descriptions
+  ([#316](https://github.com/eschnitzler/EmpireCore/pull/316),
+  [`5f2345f`](https://github.com/eschnitzler/EmpireCore/commit/5f2345f7c37aba9100b9cd5c8cc8a8affef9c858))
+
+- **state**: Decide alliance attack alerts as the client does, and correct four command comments
+  ([#316](https://github.com/eschnitzler/EmpireCore/pull/316),
+  [`5f2345f`](https://github.com/eschnitzler/EmpireCore/commit/5f2345f7c37aba9100b9cd5c8cc8a8affef9c858))
+
+- **state**: Read trigger events and every sei the client applies
+  ([#313](https://github.com/eschnitzler/EmpireCore/pull/313),
+  [`6ffd29e`](https://github.com/eschnitzler/EmpireCore/commit/6ffd29ec45e2d610c9be4d6389bc7ebca6db7032))
+
+- **state**: Stop reading lli as login data, and correct two descriptions
+  ([#316](https://github.com/eschnitzler/EmpireCore/pull/316),
+  [`5f2345f`](https://github.com/eschnitzler/EmpireCore/commit/5f2345f7c37aba9100b9cd5c8cc8a8affef9c858))
+
+### Documentation
+
+- **design**: Bring the design notes in line with client a4a25ae6
+  ([#269](https://github.com/eschnitzler/EmpireCore/pull/269),
+  [`0dd3fe9`](https://github.com/eschnitzler/EmpireCore/commit/0dd3fe993649b4679b1832491092f4e25ea5c70c))
+
+### Features
+
+- **events**: Get an event's scores by its name
+  ([#276](https://github.com/eschnitzler/EmpireCore/pull/276),
+  [`44f5904`](https://github.com/eschnitzler/EmpireCore/commit/44f59045f76ed166f3679b42923f4c333669a836))
+
+- **events**: Read client.events from state and add refresh()
+  ([#315](https://github.com/eschnitzler/EmpireCore/pull/315),
+  [`e36fc60`](https://github.com/eschnitzler/EmpireCore/commit/e36fc60aef6d35fa9afb243e817a21b0165d43a1))
+
+- **ranking**: Refuse leaderboard replies for another list
+  ([#266](https://github.com/eschnitzler/EmpireCore/pull/266),
+  [`9d04aa6`](https://github.com/eschnitzler/EmpireCore/commit/9d04aa67b6a3a68e623bdf8325c77ccf607065ad))
+
+- **spy**: Read the spy count into state and count available spies as the client does
+  ([#267](https://github.com/eschnitzler/EmpireCore/pull/267),
+  [`8513c20`](https://github.com/eschnitzler/EmpireCore/commit/8513c20b36eea120d505274104bdffc16e3a24b3))
+
+- **state**: Keep events as typed models in GameState
+  ([#314](https://github.com/eschnitzler/EmpireCore/pull/314),
+  [`b6c94cc`](https://github.com/eschnitzler/EmpireCore/commit/b6c94cc1f8d4178b8bcd4d63cb80be7547c88600))
+
+### Refactoring
+
+- **enums**: Name NPC owner ids in one NPCOwner enum
+  ([#316](https://github.com/eschnitzler/EmpireCore/pull/316),
+  [`5f2345f`](https://github.com/eschnitzler/EmpireCore/commit/5f2345f7c37aba9100b9cd5c8cc8a8affef9c858))
+
+- **gamedata**: Load each id enum module on first use
+  ([#276](https://github.com/eschnitzler/EmpireCore/pull/276),
+  [`44f5904`](https://github.com/eschnitzler/EmpireCore/commit/44f59045f76ed166f3679b42923f4c333669a836))
+
+### Testing
+
+- **protocol**: Read SmartFox system messages and sent server constants from the client
+  ([#268](https://github.com/eschnitzler/EmpireCore/pull/268),
+  [`13fc335`](https://github.com/eschnitzler/EmpireCore/commit/13fc335d5cd485a877d998a3851592264b2427f5))
+
+### Breaking Changes
+
+- **enums**: Empire_core.movements.tracked.DAIMYO_TOWNSHIP_PLAYER_ID is removed; use
+  NPCOwner.DAIMYO_TOWNSHIP.
+
+- **events**: A sei packet no longer ends the events it does not name, and an event now ends when
+  its RS runs out (one never given RS is not running): client.events.get_active_event_ids() and
+  GameState.active_event_ids (now a read-only copy) follow that, and a see push ends an event.
+  get_league_id(event_id, part=None) gains an optional part (additive).
+
+- **events**: GameEvent is a pydantic model from empire_core.events (empire_core.GameEvent still
+  names it); empire_core.utils.events.GameEvent is gone. id -> event_id; internal_name (the CDN
+  eventType) and description (its developer comment) are gone, use event (an Event member, or None)
+  and display_name; details is new and dumps with its model's own fields. get_active_events() now
+  returns every running event, the trigger events and ids the CDN does not know included (it skipped
+  ids missing from the CDN items), and no longer raises NetworkError when the CDN is down.
+  empire_core.utils.events.get_active_events() is gone (use client.events.get_active_events(), or
+  get_event_titles()).
+
+- **ranking**: Send()/request() for llsp and llsw no longer return a successful reply for another
+  list in the league asked for, and slse no longer returns one for another list; they wait for the
+  matching reply and raise EmpireTimeoutError if none comes.
+
+- **spy**: SpyService.spies_in_use() counts only your movements of MovementType.SPY, not every
+  movement of yours that carries an S block.
+
+- **state**: Active_event_ids (and client.events.get_active_event_ids()) now include the running
+  trigger events (601, 610, 612); a sce amount the client reads as 0 is stored as 0 rather than
+  skipped, and "12.7" is stored as 12.
+
+- **state**: An lli payload is no longer applied to state or stamped: it no longer updates the local
+  player, and GameState.get_last_packet_time("lli") always returns None.
+
+- **state**: GameState.active_event_ids, event_end_times, event_league_ids, event_part_league_ids
+  and event_unlocked, and get_event_league_id() and is_event_unlocked(), are gone: use get_events(),
+  get_event(event) and the models' fields (league_id, parts[...].league_id, BerimondEvent.unlocked,
+  end_time). client.events.get_league_id() returns 1, not None, for a running event or part without
+  a league.
+
+- **state**: On_incoming_attack now also fires for attacks on alliance members by alien attacks, the
+  alliance nomad camp and NPCs that are not dungeon owners (outpost, capital and metropolis owners,
+  the plague monk, unknown NPC ids), fires for an attack whose owner record arrives after the
+  movement, and no longer fires for an alien attack on the daimyo township or a movement without an
+  owner id. Movement.is_incoming is False for an alien attack on the daimyo township.
+
+
 ## v0.42.1 (2026-10-01)
 
 ### Build System
