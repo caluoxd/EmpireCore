@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v0.44.0 (2026-10-02)
+
+### Features
+
+- **alliance**: Read the alliance chronicle (all) and subscriber count (asc)
+  ([#321](https://github.com/eschnitzler/EmpireCore/pull/321),
+  [`ed9dc6e`](https://github.com/eschnitzler/EmpireCore/commit/ed9dc6e49d4d3cbe1ae6f96066a833b257a1ef2f))
+
+
 ## v0.43.0 (2026-10-01)
 
 ### Bug Fixes
