@@ -14,6 +14,13 @@ from empire_core.alliance.models.chat import (
     AllianceChatMessageResponse,
     ChatMessageData,
 )
+from empire_core.alliance.models.chronicle import (
+    AllianceChronicleEntry,
+    AllianceChronicleRequest,
+    AllianceChronicleResponse,
+    AllianceSubscriberCountRequest,
+    AllianceSubscriberCountResponse,
+)
 from empire_core.alliance.models.diplomacy import (
     AllianceDonation,
     ChangeDiplomacyRequest,
@@ -770,6 +777,11 @@ __all__ = [
     "AnswerApplicationResponse",
     "QuitAllianceRequest",
     "QuitAllianceResponse",
+    "AllianceChronicleRequest",
+    "AllianceChronicleEntry",
+    "AllianceChronicleResponse",
+    "AllianceSubscriberCountRequest",
+    "AllianceSubscriberCountResponse",
     "AllianceCrests",
     "CrestLayout",
     "PeaceOffer",

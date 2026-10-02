@@ -6,6 +6,7 @@ import pytest
 from pydantic import ValidationError
 
 from empire_core.alliance.models.chat import AllianceChatLogResponse, AllianceChatMessageResponse
+from empire_core.alliance.models.chronicle import AllianceChronicleResponse, AllianceSubscriberCountResponse
 from empire_core.alliance.models.help import (
     AllianceHelpListResponse,
     AllianceHelpRequestChanged,
@@ -14,7 +15,7 @@ from empire_core.alliance.models.help import (
     RecruitHelpParams,
 )
 from empire_core.alliance.models.info import AllianceInfo, AllianceMember, AllianceStorage, GetAllianceInfoResponse
-from empire_core.enums import AllianceRank, HelpType
+from empire_core.enums import AllianceChronicleAction, AllianceRank, HelpType
 from empire_core.protocol.models import parse_response
 
 
@@ -524,3 +525,43 @@ class TestReviewFollowUps:
     def test_a_help_entry_with_a_name_that_is_not_text_is_kept(self):
         entry = AllianceHelpRequestChanged.model_validate({"LID": 1, "TID": 3, "OP": {}, "PN": 5}).request
         assert entry is not None and entry.player_name is None
+
+
+class TestAllianceChronicle:
+    # Expected values from AllianceInfoVO.parseActionList run in node on the same AL.
+    AL = [
+        {"PID": 11, "PN": "Old", "MA": 7200, "A": 0, "AV": []},
+        {"PID": "12", "PN": "Donor", "MA": "60.9", "A": 8, "AV": [1, 500]},
+        {"PID": 13, "PN": "New", "MA": 5, "A": 99, "AV": ["x"]},
+    ]
+
+    def test_entries_are_read_as_the_client_does_newest_first(self):
+        response = parse_response("all", {"AID": 301, "AL": self.AL})
+
+        assert isinstance(response, AllianceChronicleResponse)
+        assert response.alliance_id == 301
+        assert [(a.player_id, a.player_name, a.action, a.action_values, a.seconds_ago) for a in response.entries] == [
+            (13, "New", 99, ["x"], 5),
+            (12, "Donor", 8, [1, 500], 60),
+            (11, "Old", 0, [], 7200),
+        ]
+
+    def test_action_type(self):
+        new, donor, old = AllianceChronicleResponse.model_validate({"AL": self.AL}).entries
+
+        assert donor.action_type is AllianceChronicleAction.MEMBER_DONATE_RESOURCES
+        assert old.action_type is AllianceChronicleAction.MEMBER_JOIN
+        assert new.action_type is None
+
+    def test_an_unreadable_entry_costs_only_itself(self):
+        response = AllianceChronicleResponse.model_validate({"AL": [5, {"PID": 1, "PN": "Kept", "A": 1}]})
+
+        assert [a.player_name for a in response.entries] == ["Kept"]
+
+
+class TestAllianceSubscriberCount:
+    def test_count(self):
+        response = parse_response("asc", {"ASC": "7"})
+
+        assert isinstance(response, AllianceSubscriberCountResponse)
+        assert response.subscriber_count == 7

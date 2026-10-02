@@ -8,6 +8,7 @@ It covers:
 - Diplomacy, auto war, the newsletter and treasury donations
 - Alliance chat (send messages, get history)
 - Alliance help (the help list and its pushes, helping, asking for help)
+- Your alliance's chronicle and subscriber count
 """
 
 from __future__ import annotations
@@ -24,6 +25,13 @@ from empire_core.alliance.models.chat import (
     AllianceChatMessageRequest,
     AllianceChatMessageResponse,
     ChatMessageData,
+)
+from empire_core.alliance.models.chronicle import (
+    AllianceChronicleEntry,
+    AllianceChronicleRequest,
+    AllianceChronicleResponse,
+    AllianceSubscriberCountRequest,
+    AllianceSubscriberCountResponse,
 )
 from empire_core.alliance.models.diplomacy import (
     AllianceDonation,
@@ -515,6 +523,26 @@ class AllianceService(BaseService):
         if alliance_id is None:
             return []
         return self.get_online_members(alliance_id, timeout=timeout)
+
+    def get_chronicle(self, timeout: float = 5.0) -> list[AllianceChronicleEntry]:
+        """
+        Get your alliance's chronicle, newest first.
+
+        Raises:
+            CommandError: error 114 when you are in no alliance
+            CommandError / EmpireTimeoutError / ConnectionClosedError: see :meth:`EmpireClient.send`
+        """
+        return self.request(AllianceChronicleRequest(), AllianceChronicleResponse, timeout=timeout).entries
+
+    def get_subscriber_count(self, timeout: float = 5.0) -> int:
+        """
+        Get how many of your alliance's members have a subscription.
+
+        Raises:
+            CommandError / EmpireTimeoutError / ConnectionClosedError: see :meth:`EmpireClient.send`
+        """
+        response = self.request(AllianceSubscriberCountRequest(), AllianceSubscriberCountResponse, timeout=timeout)
+        return response.subscriber_count
 
     # =========================================================================
     # Chat Operations
