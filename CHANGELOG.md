@@ -2,6 +2,155 @@
 
 <!-- version list -->
 
+## v0.47.0 (2026-10-05)
+
+### Bug Fixes
+
+- **network**: Keep a late reply from the next request for its command
+  ([#360](https://github.com/eschnitzler/EmpireCore/pull/360),
+  [`9866cc0`](https://github.com/eschnitzler/EmpireCore/commit/9866cc0571eedf913649804a485ae9bb047c2feb))
+
+- **services**: Report failure by one rule, and match server errors by name
+  ([#363](https://github.com/eschnitzler/EmpireCore/pull/363),
+  [`8225114`](https://github.com/eschnitzler/EmpireCore/commit/82251148f32da511c33cd9233712dfa4f4a9b127))
+
+### Features
+
+- **client**: Log a dropped session in again with keep_session
+  ([#370](https://github.com/eschnitzler/EmpireCore/pull/370),
+  [`6e59912`](https://github.com/eschnitzler/EmpireCore/commit/6e5991260aa89c4011b1d2c5850a2e4662437498))
+
+- **state**: Occupation events after a capture attack
+  ([#367](https://github.com/eschnitzler/EmpireCore/pull/367),
+  [`54134e2`](https://github.com/eschnitzler/EmpireCore/commit/54134e29d855838bfff45bffdaaf237d91560a58))
+
+- **state**: Re-announce tracked attacks, wall-clock protection end, listen() by name
+  ([#368](https://github.com/eschnitzler/EmpireCore/pull/368),
+  [`8385303`](https://github.com/eschnitzler/EmpireCore/commit/838530331468d390285ec9f6c15d89c775df08e1))
+
+### Performance Improvements
+
+- **map**: Hand each scanned chunk to on_chunk instead of keeping the kingdom
+  ([#369](https://github.com/eschnitzler/EmpireCore/pull/369),
+  [`fe487ea`](https://github.com/eschnitzler/EmpireCore/commit/fe487ea5a972402823d1e2d0e710fcf590c5b53e))
+
+### Refactoring
+
+- Declare each callback once as an Event, and remove it with .remove()
+  ([#374](https://github.com/eschnitzler/EmpireCore/pull/374),
+  [`c98f2fe`](https://github.com/eschnitzler/EmpireCore/commit/c98f2fe7c53f4236ce90bcbf90fef5f31f47912e))
+
+- Login() returns None, and the last field comments become descriptions
+  ([#364](https://github.com/eschnitzler/EmpireCore/pull/364),
+  [`10ebd7a`](https://github.com/eschnitzler/EmpireCore/commit/10ebd7a93324a67037c3db01bbf2d32e0b447e5b))
+
+- Make the root and the first-level packages the public import paths
+  ([#365](https://github.com/eschnitzler/EmpireCore/pull/365),
+  [`959d761`](https://github.com/eschnitzler/EmpireCore/commit/959d7615fa3789397cfff7dbc20dbbdc6cb0ae4e))
+
+- **attack**: Split service.py into sending, target reading and wave filling
+  ([#362](https://github.com/eschnitzler/EmpireCore/pull/362),
+  [`385e465`](https://github.com/eschnitzler/EmpireCore/commit/385e4655a9d6e8b131be9ff347c50b936cd47e84))
+
+- **client**: Move the login and session upkeep out of EmpireClient
+  ([#372](https://github.com/eschnitzler/EmpireCore/pull/372),
+  [`2163f0f`](https://github.com/eschnitzler/EmpireCore/commit/2163f0fc85efab1ce30b1890535805a74e107a64))
+
+- **gamedata**: One items download and cache for game data and troop counts
+  ([#361](https://github.com/eschnitzler/EmpireCore/pull/361),
+  [`faee81d`](https://github.com/eschnitzler/EmpireCore/commit/faee81d4ad2f252b8593232b76f7230d728aa966))
+
+- **state**: One event registry for every callback
+  ([#371](https://github.com/eschnitzler/EmpireCore/pull/371),
+  [`778e7b8`](https://github.com/eschnitzler/EmpireCore/commit/778e7b8e1094350a5e7ea9a7606b437e15abef7d))
+
+- **state**: Split movement storage from announcing
+  ([#373](https://github.com/eschnitzler/EmpireCore/pull/373),
+  [`a2711e3`](https://github.com/eschnitzler/EmpireCore/commit/a2711e39459f829e912af705d0bd10667a5d8c9f))
+
+### Breaking Changes
+
+- EmpireClient.login() returns None instead of True. Drop any check on its return value; catch
+  EmpireError (or a subclass) for failures.
+
+- Every remove_<name>_callback(cb) is gone; call on_<name>.remove(cb) instead. Released in v0.46.0:
+  on client.state remove_incoming_attack_callback, remove_incoming_attack_updated_callback,
+  remove_incoming_attack_withdrawn_callback, remove_movement_arrived_callback,
+  remove_movement_recalled_callback, remove_movement_removed_callback,
+  remove_building_finished_callback, remove_building_xp_callback, remove_buildings_changed_callback,
+  remove_event_added_callback, remove_event_removed_callback, remove_events_updated_callback; on
+  client.alliance remove_chat_message_callback and remove_help_update_callback; on client.skills
+  remove_skill_list_callback; on client.messages remove_new_messages_callback; on the client
+  remove_disconnect_callback. The unreleased remove_occupation_{started,updated,ended}_callback and
+  remove_session_{lost,restored}_callback go too.
+
+- Module paths below the first level are no longer public, among them empire_core.protocol.models,
+  empire_core.protocol.errors, empire_core.protocol.base, empire_core.protocol.auth,
+  empire_core.gamedata.ids, empire_core.<area>.models.*, empire_core.<area>.service,
+  empire_core.map.scanner and the whole of empire_core.utils. Import each name from the root or its
+  first-level package instead: a model from its area (empire_core.castle.GetCastlesRequest), a
+  service from its area (empire_core.map.MapService), the scanner and its results from
+  empire_core.map, an id enum from empire_core.gamedata (empire_core.gamedata.Event), the protocol
+  bases, codecs, login models and GGEError from empire_core.protocol (GGEError, Packet and the
+  codecs also from the root), get_event_titles from empire_core.events, and the troop and CDN
+  helpers from empire_core.gamedata. These have no public path any more and may change or go without
+  notice: empire_core.utils.cancel.sleep_unless_cancelled; empire_core.network (Connection,
+  ResponseWaiter, FrameBuffer); empire_core.client.stream.callback_sources and CallbackSource; the
+  protocol helpers build_command, build_version_check, json_text, smartfox_text, is_smartfox_valid,
+  enum_or_none, list_or_empty, object_or_none, read_or_none, readable_list and the
+  empire_core.protocol.js readers; and the internal helpers building_or_none, building_rows,
+  unlocked_slots, rows_by_id, EffectSpecRow, owner_positions, island_title_chain, legend_spy_bonus,
+  research_spy_bonus, title_spy_percent, max_damaged_buildings, max_sabotage_damage,
+  risk_target_flags and row_risk_flags.
+
+- **gamedata**: Empire_core.utils.troops and empire_core.utils.events are gone. Import
+  get_troop_ids, troop_data_available, count_troops, get_items_version and fetch_items_data from
+  empire_core.gamedata (the first two also stay on empire_core), and get_event_titles from
+  empire_core.events. GameData.load returns the same shared instance for every call while the items
+  version holds (treat it as read-only). When the CDN fails it returns the data already loaded; with
+  nothing loaded it raises NetworkError, and within five minutes of a failed fetch it does so
+  without a request unless refresh=True.
+
+- **network**: After a request times out, the next request for a command without a reply check first
+  waits for the owed reply, up to the timed-out request's timeout (or send_and_drop_reply's window),
+  and then has its own whole timeout, so the call can take that much longer than its timeout.
+  Connection gains send_and_drop_reply(data, cmd_id, window), which get_movements(wait=False) and
+  the mvf handler call: a stand-in Connection must provide it. get_movements(wait=False) can now
+  raise EmpireTimeoutError when a gam request holds the command for all of its timeout. An arc reply
+  without CID (or with another castle's CID or KID) is not taken by a RenameCastleRequest
+  (castle.rename), whose request then raises EmpireTimeoutError instead of PacketError.
+
+- **services**: Client.spy.forward_report(message_id, []) raises ValueError instead of returning
+  False; pass at least one player id. client.alliance.get_local_members() and
+  get_local_online_members() raise NotInAllianceError outside an alliance instead of returning [],
+  and get_member(player_id, no_cache=True) raises it when no alliance is cached and you are in none;
+  check client.alliance.local_alliance_id first or catch the error.
+  client.alliance.local_alliance_id is None when the player data's AID is negative, where it
+  returned the negative id. client.alliance.get_chronicle(), get_applications(),
+  answer_application(), invite(), kick_member(), set_rank(), leave(), change_diplomacy(),
+  refuse_diplomacy(), set_auto_war(), send_newsletter() and donate() raise NotInAllianceError
+  outside an alliance without sending, and for the server's ALLI_NOT_FOUND, where they sent and
+  raised CommandError or returned False; get_subscriber_count() raises it for ALLI_NOT_FOUND.
+  client.alliance.kick_member() and refuse_diplomacy() return AllianceInfo, not AllianceInfo | None,
+  and with set_rank() raise PacketError for a reply without the alliance; set_rank() returns None
+  only for NO_CHANGE. client.castle.get_details() raises UnknownCastleError instead of returning
+  None for an id the reply does not list, and client.castle.get_horses() raises it for a castle not
+  in your castle list. client.events.get_league_id() returns int and raises EventNotRunningError
+  instead of returning None for an event that is not running. client.alliance.search_alliances()
+  raises PacketError when the hgh payload is not an object, where it returned [].
+  client.attack.fill_attack() raises timeouts, dropped connections and unreadable replies of its
+  target reads (the map scan, the pre-calculation, gie and skl), where it filled without them, and
+  raises ValueError for an area type with no pre-calculation modelled; read FilledAttack.unread, a
+  dict of TargetRead to CommandError, for the reads the server refused, which it logs at warning
+  level (info for the pre-calculation's INVALID_AREA) instead of debug. ClientVersionError.status is
+  a VersionCheckStatus (still equal to 1 or 2).
+
+- **state**: Movement.is_siege and MovementType.is_siege are renamed to is_occupation; use
+  movement.is_occupation. An occupation no longer counts as incoming: Movement.is_incoming is False
+  for one and get_incoming_movements() leaves it out; use get_occupations() or on_occupation_started
+  for occupations of your areas.
+
+
 ## v0.46.0 (2026-10-05)
 
 ### Features
