@@ -2,6 +2,96 @@
 
 <!-- version list -->
 
+## v0.45.0 (2026-10-05)
+
+### Build System
+
+- Check pydantic constructors with mypy's plugin
+  ([#342](https://github.com/eschnitzler/EmpireCore/pull/342),
+  [`772c1b9`](https://github.com/eschnitzler/EmpireCore/commit/772c1b980ed1a1bfc8daf893eb502d507b38835d))
+
+### Features
+
+- **attack**: List, save and rename attack presets
+  ([#337](https://github.com/eschnitzler/EmpireCore/pull/337),
+  [`91a14f0`](https://github.com/eschnitzler/EmpireCore/commit/91a14f0184e2fbc8ae42ca108eedee6b5a1366cc))
+
+- **castle**: Read, start and collect tax
+  ([#335](https://github.com/eschnitzler/EmpireCore/pull/335),
+  [`49bd3e7`](https://github.com/eschnitzler/EmpireCore/commit/49bd3e79b2ca201f4b98c0cdc0844a6ae287dc36))
+
+- **commanders**: Read the general data a commander entry carries
+  ([#334](https://github.com/eschnitzler/EmpireCore/pull/334),
+  [`ed9e70b`](https://github.com/eschnitzler/EmpireCore/commit/ed9e70b667285687a89dc0ecef88a4d5879579b5))
+
+- **defense**: Set the keep, wall and moat defense
+  ([#336](https://github.com/eschnitzler/EmpireCore/pull/336),
+  [`a7bb9fb`](https://github.com/eschnitzler/EmpireCore/commit/a7bb9fbaccad0b6efacc5a9d689fc90b603abc96))
+
+- **map**: Find the next enemy castle and Berimond tower
+  ([#338](https://github.com/eschnitzler/EmpireCore/pull/338),
+  [`99312ee`](https://github.com/eschnitzler/EmpireCore/commit/99312eedc5f6644b46d11abdc771de318f79846a))
+
+- **messages**: Read battle reports and forward them
+  ([#334](https://github.com/eschnitzler/EmpireCore/pull/334),
+  [`ed9e70b`](https://github.com/eschnitzler/EmpireCore/commit/ed9e70b667285687a89dc0ecef88a4d5879579b5))
+
+- **state**: Apply castle pushes to state
+  ([#333](https://github.com/eschnitzler/EmpireCore/pull/333),
+  [`63e5709`](https://github.com/eschnitzler/EmpireCore/commit/63e57099049e19808b8c404c82ea769ebc4f5dd1))
+
+- **state**: Keep the commanders, legend skills, alliance details and chat from login
+  ([#331](https://github.com/eschnitzler/EmpireCore/pull/331),
+  [`db643ba`](https://github.com/eschnitzler/EmpireCore/commit/db643ba7229266ed2161d78da41fb3f59ad9f3cd))
+
+- **state**: Read the player's progress into state
+  ([#332](https://github.com/eschnitzler/EmpireCore/pull/332),
+  [`476c243`](https://github.com/eschnitzler/EmpireCore/commit/476c243a1446b463e9025e398100c41957767723))
+
+### Refactoring
+
+- **combat**: Type-check cleanly without ignores
+  ([#342](https://github.com/eschnitzler/EmpireCore/pull/342),
+  [`772c1b9`](https://github.com/eschnitzler/EmpireCore/commit/772c1b980ed1a1bfc8daf893eb502d507b38835d))
+
+- **enums**: Rename SpyLogResult to LogResult
+  ([#334](https://github.com/eschnitzler/EmpireCore/pull/334),
+  [`ed9e70b`](https://github.com/eschnitzler/EmpireCore/commit/ed9e70b667285687a89dc0ecef88a4d5879579b5))
+
+- **messages**: Make messages.models a package
+  ([#334](https://github.com/eschnitzler/EmpireCore/pull/334),
+  [`ed9e70b`](https://github.com/eschnitzler/EmpireCore/commit/ed9e70b667285687a89dc0ecef88a4d5879579b5))
+
+### Testing
+
+- Scrub real names from fixtures and examples
+  ([#339](https://github.com/eschnitzler/EmpireCore/pull/339),
+  [`649ba3b`](https://github.com/eschnitzler/EmpireCore/commit/649ba3bbab39004bd8779b96dcc6d799fa6f2cd4))
+
+### Breaking Changes
+
+- **commanders**: A commander or castellan entry's XP, OXP, IN, LU, SIDS and GASAIDS are typed
+  fields (general_xp, general_old_xp, general_is_new, general_has_level_up, general_skill_ids,
+  general_ability_ids) and are no longer in model_extra.
+
+- **enums**: SpyLogResult -> LogResult (same members and values), imported from empire_core.enums,
+  empire_core.spy or empire_core.protocol.models.
+
+- **state**: CommanderRoster (gli, and every reply carrying one) now lists commanders sorted by
+  commander_id and castellans by portrait order instead of in the server's order. ChatMessageData is
+  frozen: assigning to its fields raises.
+
+- **state**: SelectCastleResponse reads the jaa reply's gsm, rci, csl and gab blocks as typed fields
+  (mines, resource_carts, slum_level, area_booster); they are no longer in model_extra.
+  MineStatusList and ResourceCartInfo are now the registered gsm and rci response models. MineStatus
+  and ResourceCart are frozen: assigning to their fields raises.
+
+- **state**: Total_spies() and available_spies() default research_ids, legend_skill_ids, title_ids
+  and island_title_id to None (read from state) instead of () and -1. A call without arguments after
+  login now counts the boosts and raises GameDataNotLoadedError unless client.load_game_data() was
+  called; pass () / -1 for the old count.
+
+
 ## v0.44.0 (2026-10-02)
 
 ### Features
