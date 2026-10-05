@@ -2,6 +2,86 @@
 
 <!-- version list -->
 
+## v0.46.0 (2026-10-05)
+
+### Features
+
+- **client**: Stream every callback to an asyncio loop with client.listen
+  ([#350](https://github.com/eschnitzler/EmpireCore/pull/350),
+  [`5cd99e0`](https://github.com/eschnitzler/EmpireCore/commit/5cd99e02e3027b9ff5bebdf862dd326ff69aac9e))
+
+- **combat**: Resolve commander bonuses from a Movement, with set bonuses
+  ([#346](https://github.com/eschnitzler/EmpireCore/pull/346),
+  [`733502d`](https://github.com/eschnitzler/EmpireCore/commit/733502dc01fbac9c7132e15a0dad2afadf656d28))
+
+- **commanders**: Expose free premium commanders and never charge rubies silently
+  ([#347](https://github.com/eschnitzler/EmpireCore/pull/347),
+  [`dbbcd56`](https://github.com/eschnitzler/EmpireCore/commit/dbbcd5666bad4be7f623beec27be2b20d10f33c7))
+
+- **map**: Cancellable scans ([#352](https://github.com/eschnitzler/EmpireCore/pull/352),
+  [`5559c0d`](https://github.com/eschnitzler/EmpireCore/commit/5559c0d466eb8e85282314024253d186e36096a4))
+
+- **player**: Fix peace and beginner protection end times at parse time
+  ([#348](https://github.com/eschnitzler/EmpireCore/pull/348),
+  [`3dab27c`](https://github.com/eschnitzler/EmpireCore/commit/3dab27c22d169123c0e6ae27735ba6291130f09c))
+
+- **pool**: Keep leased clients logged in between leases
+  ([#349](https://github.com/eschnitzler/EmpireCore/pull/349),
+  [`dd60b81`](https://github.com/eschnitzler/EmpireCore/commit/dd60b81a7d725124c964b98d778ff3ac978a894f))
+
+- **spy**: Make a spy mission cancellable and its report awaitable separately
+  ([#351](https://github.com/eschnitzler/EmpireCore/pull/351),
+  [`64aa311`](https://github.com/eschnitzler/EmpireCore/commit/64aa311ce40f1177641e74430ab931f1d3b5ff34))
+
+- **state**: Add an incoming_attack_updated callback
+  ([#345](https://github.com/eschnitzler/EmpireCore/pull/345),
+  [`6fa5348`](https://github.com/eschnitzler/EmpireCore/commit/6fa53488f75cf10b0a231751060d7606eadb6a1a))
+
+- **state**: Report when an announced attack is withdrawn before it arrives
+  ([#344](https://github.com/eschnitzler/EmpireCore/pull/344),
+  [`6edd3a7`](https://github.com/eschnitzler/EmpireCore/commit/6edd3a7c7ff682c255e619ae8ecc096b0f9b07ad))
+
+### Performance Improvements
+
+- **map**: Build only the map rows a scan keeps, and owner positions without pydantic
+  ([#354](https://github.com/eschnitzler/EmpireCore/pull/354),
+  [`1718ebd`](https://github.com/eschnitzler/EmpireCore/commit/1718ebd7d6ccf5e0874e7d82386504f88662a02c))
+
+### Testing
+
+- **state**: Check a booster's end on either side of the boundary
+  ([#355](https://github.com/eschnitzler/EmpireCore/pull/355),
+  [`23d66b2`](https://github.com/eschnitzler/EmpireCore/commit/23d66b2743f7f97923c15801bed1a01f73c4e3b3))
+
+### Breaking Changes
+
+- **combat**: Commander_bonuses, attack_dialog_bonuses, the wave fills built on them and
+  defender_flank_effects (through the castellan) now include equipment set bonuses, so a commander
+  or castellan wearing set items resolves higher than before. Nothing to change in calling code;
+  expect the larger totals. A default commander (commander_id below 0) now resolves to its lords
+  row's effects, then E and AE, and any equipment it is sent with no longer counts. An area_type or
+  space_id below 0 passed to the effect resolver (and the functions built on it, such as
+  attacker_flank_effects) now keeps every effect, where it used to drop the effects scoped to an
+  area or space.
+
+- Movement.commander_equipment and Movement.commander_effects are removed. Read
+  movement.commander.equipment and movement.commander.area_effects instead; movement.commander is
+  None when the movement carries no commander.
+
+- **commanders**: Send_support, send_troops and send_attack led by the premium commander
+  (use_premium_commander=True or commander_id=-14) now raise PremiumCommanderCostError, sending
+  nothing, unless a free premium commander is left or a premium account runs; pass spend_rubies=True
+  to send anyway and pay rubies as before. While VIP time runs the check needs
+  client.load_game_data() and raises GameDataNotLoadedError without it.
+
+- **player**: PlayerProfileBase.bird_end_time and GetPlayerInfoResponse.bird_end_time (a UTC
+  datetime counted from the moment of reading) are removed. Use revenge_protection_end
+  (time.monotonic() seconds, fixed at parse) or remaining_revenge_protection_seconds(). has_bird on
+  PlayerProfileBase (AllianceMember, PlayerOwnerInfo) and GetPlayerInfoResponse now turns False once
+  the peace protection has run out, instead of staying True for as long as the record is kept; read
+  revenge_protection_seconds for the value as sent.
+
+
 ## v0.45.0 (2026-10-05)
 
 ### Build System
