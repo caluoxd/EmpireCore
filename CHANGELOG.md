@@ -2,6 +2,54 @@
 
 <!-- version list -->
 
+## v0.48.0 (2026-10-06)
+
+### Documentation
+
+- **combat**: Point global effect strengths at the GLOBAL_EFFECT event
+  ([#384](https://github.com/eschnitzler/EmpireCore/pull/384),
+  [`b3d54c5`](https://github.com/eschnitzler/EmpireCore/commit/b3d54c513b790b0e360e16e7d8690fef40276847))
+
+### Features
+
+- **alliance**: Add, change and delete map bookmarks
+  ([#383](https://github.com/eschnitzler/EmpireCore/pull/383),
+  [`9f47a0c`](https://github.com/eschnitzler/EmpireCore/commit/9f47a0c632f20d809cdd469c948e3b9df8d594cc))
+
+- **events**: Read your own rank and points in an event
+  ([#378](https://github.com/eschnitzler/EmpireCore/pull/378),
+  [`6a2169f`](https://github.com/eschnitzler/EmpireCore/commit/6a2169f912106f23f647bb76bf11c6d7d7fe7330))
+
+- **rewards**: Read and collect the free daily rewards
+  ([#382](https://github.com/eschnitzler/EmpireCore/pull/382),
+  [`4e05cc7`](https://github.com/eschnitzler/EmpireCore/commit/4e05cc73e2110b9efc6c1db0a4c166ca58a558c5))
+
+- **state**: Read quests, daily quests and more event types into state
+  ([#379](https://github.com/eschnitzler/EmpireCore/pull/379),
+  [`dc39fe2`](https://github.com/eschnitzler/EmpireCore/commit/dc39fe24b34a0c3a9d78c99e94449f39b1e9391e))
+
+- **state**: Read the daily reset, attack counter, officers' school, gifts and wishing well
+  ([#380](https://github.com/eschnitzler/EmpireCore/pull/380),
+  [`58ae363`](https://github.com/eschnitzler/EmpireCore/commit/58ae363b2eb146f628545e674a4427df22ba6ec1))
+
+- **state**: Read the gems, loot boxes, inventory space, kingdoms, mercenaries and tax
+  ([#381](https://github.com/eschnitzler/EmpireCore/pull/381),
+  [`754a63b`](https://github.com/eschnitzler/EmpireCore/commit/754a63b7154ada1a843efd8fbc2121da2c9a1b37))
+
+### Breaking Changes
+
+- **state**: The events listed above are now their own SpecialEvent subclasses instead of a plain
+  SpecialEvent, so code checking type(event) is SpecialEvent sees them differently; use isinstance.
+  For those whose client class does not read KL (all of them but the fortune teller and the score
+  events 36 and 129), kingdoms_league_mode is now always False, as the client keeps it.
+  LuckyWheelEvent subclasses PointEvent, so isinstance(event, PointEvent) is now true for the lucky
+  wheels (15, 89) too; check the event id to tell the nobility contest. The alliance tournament (36)
+  and mobilisation (129) now match ScoredEvent. An entry their client class fails to read is no
+  longer stored: 36 without A, 129 without A or SP and 96 without CQS leave get_event() returning
+  None (or the event as it was) and fire no on_event_added. A pep for 36, which changed nothing
+  before, now updates the alliance score in parts["A"].
+
+
 ## v0.47.0 (2026-10-05)
 
 ### Bug Fixes
