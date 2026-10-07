@@ -2,6 +2,73 @@
 
 <!-- version list -->
 
+## v0.49.0 (2026-10-07)
+
+### Bug Fixes
+
+- **combat**: Add the global effect booster to boosted effects' unit attack bonus
+  ([`0f71214`](https://github.com/eschnitzler/EmpireCore/commit/0f71214d39491c79a780ee771ab59ed28368925f))
+
+- **pool**: Keep a kept client that is logging back in
+  ([`dc4fade`](https://github.com/eschnitzler/EmpireCore/commit/dc4fade3162b83c710bbdf69edbab836802a645f))
+
+- **state**: Fire on_movement_arrived at the arrival time
+  ([`bf767d0`](https://github.com/eschnitzler/EmpireCore/commit/bf767d04f731eee5cc5c8e3f7ebee40cf266b9f6))
+
+### Chores
+
+- **logging**: Log a session dropped mid-scan once, as a warning
+  ([`321f369`](https://github.com/eschnitzler/EmpireCore/commit/321f36943efe36ad86387a14f8835295cfedb6d9))
+
+### Documentation
+
+- A general landing page and README, with an alpha warning
+  ([`1beb28b`](https://github.com/eschnitzler/EmpireCore/commit/1beb28bd9e8562042e1d9792083322c4006d1dce))
+
+### Features
+
+- **army**: Name the spy-army sections with SpyArmySection
+  ([`6cd9762`](https://github.com/eschnitzler/EmpireCore/commit/6cd97628ad5e32a4af06251df3cb02f296481d5d))
+
+- **client**: Configurable keep_session timing, a restoring state, and first-login retries
+  ([`3cb11c4`](https://github.com/eschnitzler/EmpireCore/commit/3cb11c47cef84aa29009ddac3f132ed72121623d))
+
+- **map**: Scan one kingdom with several clients
+  ([`00be8c7`](https://github.com/eschnitzler/EmpireCore/commit/00be8c70c11604e54e0052e989596fc581a400d7))
+
+- **rewards**: Collect the patch note rewards and read the pending rewards
+  ([`6bd73bd`](https://github.com/eschnitzler/EmpireCore/commit/6bd73bd454f4e0b14cfd2c51d246969e5a0ab8b7))
+
+- **state**: Reannounce a movement the post-reconnect movement list has not listed yet
+  ([`4410e36`](https://github.com/eschnitzler/EmpireCore/commit/4410e36a3c3bbfd96abb56945c5266783f137a96))
+
+### Breaking Changes
+
+- **army**: SECTION_NAMES is removed from empire_core.army.spy_army; iterate SpyArmySection (from
+  empire_core.army) instead. WALL_SECTIONS is removed; use SpyArmySection.is_wall.
+  SpyArmy.sections() yields SpyArmySection members as its first element. A member still compares
+  equal to the old name, but str() and, on Python 3.12+, f-strings show the member
+  (SpyArmySection.LEFT), so format a section name with .value.
+
+- **client**: Empire_core.client.session.RELOGIN_FIRST_DELAY and RELOGIN_MAX_DELAY are removed; set
+  EmpireConfig.relogin_first_delay and EmpireConfig.relogin_max_delay instead. Assigning a value an
+  EmpireConfig field does not take now raises pydantic's ValidationError where it was stored as
+  given; assign values of the field's type, and raise relogin_max_delay before relogin_first_delay
+  when raising both.
+
+- **combat**: AttackService.fill_waves and fill_attack replace global_effect_ids (ids or [id,
+  seconds_left, strength] rows) with global_effects, an iterable of GlobalEffectTimer, read from the
+  Event.GLOBAL_EFFECT event in state when not given. Drop the argument to use the state's running
+  effects, or pass GlobalEffectEvent.effects (or your own GlobalEffectTimer objects) instead of the
+  ids or rows.
+
+- **pool**: A keep_alive pool no longer closes and replaces a kept client that is logging back in
+  (is_restoring_session); its account is skipped until the restore ends, so a lease by that username
+  returns None (leased() raises PoolExhaustedError) instead of logging in a fresh client. release()
+  (and the end of a leased() block) now keeps such a client instead of closing it. Retry later, or
+  close it yourself with pool.get_client(username).close() to force a fresh login on the next lease.
+
+
 ## v0.48.0 (2026-10-06)
 
 ### Documentation
